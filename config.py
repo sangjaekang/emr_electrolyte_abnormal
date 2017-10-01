@@ -14,9 +14,10 @@ RAW_DATA_DIR = BASE_PATH + "/data/rawdata/potassium_data/"
 RAW_LABTEST_PATH = RAW_DATA_DIR+"labtest.dat"
 RAW_DIAGNOSIS_PATH = RAW_DATA_DIR+"diagnosis.dat"
 RAW_PRESCRIBE_PATH = RAW_DATA_DIR+'prescribe.dat'
+RAW_DEMO_PATH = RAW_DATA_DIR + 'medi_info.xlsx'
 
 KCD_PATH = RAW_DATA_DIR + 'KCD.xlsx'
-MEDICINE_CONTEXT_PATH = RAW_DATA_DIR + 'medi_info.xlsx'
+MEDICINE_CONTEXT_PATH = RAW_DATA_DIR + 'medicine_context.xlsx'
 
 # 전처리된 data의 경로
 PREP_DIR = BASE_PATH + '/data/prep/' 
@@ -30,6 +31,7 @@ DELIM = '\x0b'  # 구분자
 RAW_LABTEST_COLS = ['no','lab_test','date','result'] # RAW lab test data의 column 순서
 RAW_DIAGNOSIS_COLS = ['no','date','KCD_code','description'] # Raw Diagnosis data의 column 순서
 MEDICINE_CONTEXT_COLS = ['medi_code','medi_name','s_date','e_date','ingd','ATC_code','ATC_desc'] # medicine 정보　dataframe의　column순서
+RAW_PRESCRIBE_COLS = ['no','medi_code','ingd_name','date','total','once','times','day'] # 
 
 MIN_DATE = '20110601' # 데이터 시작 날짜
 MAX_DATE = '20170630' # 데이터 종료 날짜
@@ -56,10 +58,14 @@ EMGCY_AND_NOT_DICT = {
 
 # 데이터 전처리 내 에서의 configuration
 SKIP_TEST_INTERVAL = 7 # LAB 데이터 내 검사 일자 간 최소간격
-KCD_MAP_TYPE = 1 # diagnosis 내 KCD code를 변환시킬 때 기준 
-                                 # [0:세분류명 1:소분류명 2:중분류명 ３:대분류명]
-KCD_COUNT_STANDARD = 1000 # KCDdiagnosis 내 KCD code가 최소 발병 기준
-                                                    # 너무 적은 케이스를 지워서， sparse를 방지 
 
+KCD_MAP_TYPE = 1 # diagnosis 내 KCD code를 변환시킬 때 기준 
+                                  # [0:세분류명 1:소분류명 2:중분류명 ３:대분류명]
+
+KCD_COUNT_STANDARD = 1000 # diagnosis data 내 KCD code의 진단　최소 건수 기준
+                                                       # 너무 적은 케이스를 지워서，희소한 KCD code를 삭제 
+
+MEDICINE_COUNT_STANDARD = 1000 # prescribe data 내 약　code의　처방　최소　건수　기준
+                                                                # 너무 적은 케이스를 지워서，희소한 약 code를 삭제 
 # DEBUG 
 DEBUG_PRINT = True
