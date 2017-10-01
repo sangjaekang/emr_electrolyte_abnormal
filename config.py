@@ -17,6 +17,8 @@ RAW_LABTEST_PATH = RAW_DATA_DIR+"labtest.dat"
 RAW_DIAGNOSIS_PATH = RAW_DATA_DIR+"diagnosis.dat"
 RAW_PRESCRIBE_PATH = RAW_DATA_DIR+'prescribe.dat'
 
+KCD_PATH = RAW_DATA_DIR + 'KCD.xlsx'
+
 # 전처리된 data의 경로
 PREP_DIR = BASE_PATH + '/data/prep/' 
 LABTEST_PATH = PREP_DIR + 'labtest.h5'
@@ -25,7 +27,9 @@ PRESCRIBE_PATH = PREP_DIR + 'prescribe.h5'
 
 # RAW DATA 특성 
 DELIM = '\x0b'  # 구분자
-RAW_LABTEST_COLS = ['no','lab_test','date','result'] # RAW data의 column 순서
+RAW_LABTEST_COLS = ['no','lab_test','date','result'] # RAW lab test data의 column 순서
+RAW_DIAGNOSIS_COLS = ['no','date','KCD_code','description'] # Raw Diagnosis data의 column 순서
+
 
 MIN_DATE = '20110601' # 데이터 시작 날짜
 MAX_DATE = '20170630' # 데이터 종료 날짜
@@ -51,7 +55,11 @@ EMGCY_AND_NOT_DICT = {
 }
 
 # 데이터 전처리 내 에서의 configuration
-SKIP_TEST_INTERVAL = 7 # 데이터 간 간격
+SKIP_TEST_INTERVAL = 7 # LAB 데이터 내 검사 일자 간 최소간격
+KCD_MAP_TYPE = 1 # diagnosis 내 KCD code를 변환시킬 때 기준 
+                                 # [0:세분류명 1:소분류명 2:중분류명 ３:대분류명]
+KCD_COUNT_STANDARD = 1000 # KCDdiagnosis 내 KCD code가 최소 발병 기준
+                                                    # 너무 적은 케이스를 지워서， sparse를 방지 
 
 # DEBUG 
 DEBUG_PRINT = True
