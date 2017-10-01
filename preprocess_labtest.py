@@ -7,34 +7,34 @@ sys.path.append(BASE_PATH)
 
 from config import *
 '''
-LABTEST DATA I/O관련　모듈
-전처리하고，　환자　관련된　time-serial dataframe을　출력하는　함수
+LABTEST DATA I/O관련 모듈
+전처리하고， 환자 관련된 time-serial dataframe을 출력하는 함수
 
-핵심　메소드
+핵심 메소드
     * get_timeserial_lab_df(no)
-        환자별　timeserial한　lab_test 결과를　출력하는　메소드
+        환자별 timeserial한 lab_test 결과를 출력하는 메소드
         ----
         output matrix property
         
             row : lab_test name (labtest 종류)
-            columns : time-serial column (MIN DATE 부터　MAX DATE까지　time-serial datetime) 
-            value : lab_test result (환자의　labtest 결과)
+            columns : time-serial column (MIN DATE 부터 MAX DATE까지 time-serial datetime) 
+            value : lab_test result (환자의 labtest 결과)
     
     * preprocess_labtest()
-        raw data ( 병원에서　받은　original 자료)를　hdf5　포맷에　맞게　정규화시켜　저장하는　메소드
+        raw data ( 병원에서 받은 original 자료)를 hdf5 포맷에 맞게 정규화시켜 저장하는 메소드
         ----
         output hdf5 property
 
-            original : raw data 중　필요없는　환자를　제거만　하고　저장한 dataframe
-            prep : raw data를　정규화하여　저장한　dataframe
-            metadata/usecol : 각　labtest　별　case 갯수
-            metadata/mapping_table : 정규화에　사용된　mapping_table
+            original : raw data 중 필요없는 환자를 제거만 하고 저장한 dataframe
+            prep : raw data를 정규화하여 저장한 dataframe
+            metadata/usecol : 각 labtest 별 case 갯수
+            metadata/mapping_table : 정규화에 사용된 mapping_table
 '''
 def get_timeserial_lab_df(no):
     # 환자에 대한 시계열 'lab_test' dataframe을 구하는 함수
     global DEBUG_PRINT, MIN_DATE, MAX_DATE, LABTEST_PATH
     
-    #전처리된　데이터가　없으면　전처리하여　생성
+    #전처리된 데이터가 없으면 전처리하여 생성
     if not os.path.isfile(LABTEST_PATH):
         if DEBUG_PRINT: print("no LABTEST file")
         preprocess_labtest()
