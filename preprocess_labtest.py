@@ -6,7 +6,6 @@ BASE_PATH = os_path[:find_path.search(os_path).span()[1]]
 sys.path.append(BASE_PATH)
 
 from config import *
-
 '''
 LABTEST DATA I/O관련　모듈
 전처리하고，　환자　관련된　time-serial dataframe을　출력하는　함수
@@ -103,42 +102,16 @@ def preprocess_labtest():
         if DEBUG_PRINT: print("    normalize {} ends".format(lab_name))
         lab_list.append(_lab_df)
     
-    normaized_lab_df = pd.concat(lab_list)        
-    normaized_lab_df.dropna(inplace=True)
-    normaized_lab_df.to_hdf(LABTEST_PATH,'prep',format='table',data_columns=True,mode='a')
+    normalized_lab_df = pd.concat(lab_list)        
+    normalized_lab_df.dropna(inplace=True)
+    normalized_lab_df.to_hdf(LABTEST_PATH,'prep',format='table',data_columns=True,mode='a')
     
     # count_lab_df : lab_test 별로 몇건이 있는지 저장
     count_lab_df = normalized_lab_df[['no','lab_test']].groupby('lab_test').count()
     count_lab_df.columns = ['counts']
     count_lab_df.to_hdf(LABTEST_PATH,'metadata/usecol',format='table',data_columns=True,mode='a')
 
-    if DEBUG_PRINT: print("preprocess_labtest ends".format(lab_name))
-
-
-def set_labtest_count():
-    '''
-    labtest의 코드별 총 갯수를 저장해놓은 것
-    col : labtest code
-    value_counts : 총 횟수 
-    '''
-    global LABTEST_PATH
-    lab_store = pd.HDFStore(LABTEST_PATH,mode='r')
-    try:
-        data_node = lab_store.get_node('prep')
-        if not data_node:
-            raise ValueError("There is no data in labtest data")
-
-        use_index_df = pd.DataFrame(columns=['col','value_counts'])
-        lab_node = lab_store.get_node('prep')
-        for lab_name in lab_node._v_children.keys():
-            value_counts = lab_store.select('data/{}'.format(lab_name)).shape[0]
-            use_index_df = use_index_df.append({'col':lab_name,'value_counts':value_counts},ignore_index=True)
-    finally:
-        lab_store.close()
-
-    use_index_df['value_counts'] = pd.to_numeric(use_index_df['value_counts'])
-    use_index_df.to_hdf(LABTEST_PATH,'metadata/usecol',format='table',data_columns=True,mode='a')
-    del use_index_df
+    if DEBUG_PRINT: print("preprocess_labtest ends")
 
 def set_mapping_table(lab_df):
     '''

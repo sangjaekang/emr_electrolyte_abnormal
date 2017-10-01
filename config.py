@@ -2,7 +2,7 @@
 import sys, os, re
 import pandas as pd
 import numpy as np
-import tensorflow as tf
+#import tensorflow as tf
 
 
 os_path = os.path.abspath('./')
