@@ -3,8 +3,6 @@ import sys, os, re
 import pandas as pd
 import numpy as np
 #import tensorflow as tf
-
-
 os_path = os.path.abspath('./')
 find_path = re.compile('emr_electrolyte_abnormal')
 BASE_PATH = os_path[:find_path.search(os_path).span()[1]]
@@ -18,6 +16,7 @@ RAW_DIAGNOSIS_PATH = RAW_DATA_DIR+"diagnosis.dat"
 RAW_PRESCRIBE_PATH = RAW_DATA_DIR+'prescribe.dat'
 
 KCD_PATH = RAW_DATA_DIR + 'KCD.xlsx'
+MEDICINE_CONTEXT_PATH = RAW_DATA_DIR + 'medi_info.xlsx'
 
 # 전처리된 data의 경로
 PREP_DIR = BASE_PATH + '/data/prep/' 
@@ -27,9 +26,10 @@ PRESCRIBE_PATH = PREP_DIR + 'prescribe.h5'
 
 # RAW DATA 특성 
 DELIM = '\x0b'  # 구분자
+
 RAW_LABTEST_COLS = ['no','lab_test','date','result'] # RAW lab test data의 column 순서
 RAW_DIAGNOSIS_COLS = ['no','date','KCD_code','description'] # Raw Diagnosis data의 column 순서
-
+MEDICINE_CONTEXT_COLS = ['medi_code','medi_name','s_date','e_date','ingd','ATC_code','ATC_desc'] # medicine 정보　dataframe의　column순서
 
 MIN_DATE = '20110601' # 데이터 시작 날짜
 MAX_DATE = '20170630' # 데이터 종료 날짜
