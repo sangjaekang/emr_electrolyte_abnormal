@@ -46,7 +46,7 @@ def get_timeserial_diagnosis_df(no):
            .applymap(lambda x : 1.0 if not np.isnan(x) else 0.0)
     
     _y.columns= _y.columns.droplevel()
-    return _y.reindex(index=usecol.index,columns=pd.date_range(MIN_DATE,MAX_DATE,freq='D'))
+    return _y.reindex(index=usecol.index,columns=pd.date_range(MIN_DATE,MAX_DATE,freq='D')).fillna(0.0)
 
 def preprocess_diagnosis():
     # RAW diagnosis data를 전처리하는 함수 
@@ -65,7 +65,7 @@ def preprocess_diagnosis():
     pre_diagnosis_df.to_hdf(DIAGNOSIS_PATH,'prep',format='table',data_columns=True,mode='a')
     # KCD_count_df : KCD_code 별로 몇 건이 있는지 저장
     KCD_count_df = pre_diagnosis_df[['KCD_code','date']].groupby('KCD_code').count()
-    KCD_count_df.columns = ['count']
+    KCD_count_df.columns = ['counts']
     KCD_count_df.to_hdf(DIAGNOSIS_PATH,'metadata/usecol',format='table',data_columns=True,mode='a')
 
     if DEBUG_PRINT: print("preprocess_diagnosis ends")
