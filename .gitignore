@@ -21,3 +21,4 @@ __pycache__/
 *.xlsx
 *.sql
 *.out
+*.h5
