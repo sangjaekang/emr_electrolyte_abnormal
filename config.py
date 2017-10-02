@@ -24,6 +24,7 @@ PREP_DIR = BASE_PATH + '/data/prep/'
 LABTEST_PATH = PREP_DIR + 'labtest.h5'
 DIAGNOSIS_PATH = PREP_DIR + 'diagnosis.h5'
 PRESCRIBE_PATH = PREP_DIR + 'prescribe.h5'
+LABEL_PATH = PREP_DIR + 'label.h5'
 
 FEATURE_DIAGNOSIS_PATH = PREP_DIR + 'feature_selection_diagnosis.h5'
 FEATURE_PRESCRIBE_PATH = PREP_DIR + 'feature_selection_prescribe.h5'
@@ -60,6 +61,8 @@ EMGCY_AND_NOT_DICT = {
 }
 
 # 데이터 전처리 내 에서의 configuration
+CORE_NUMS = 12 # cpu core 수
+
 SKIP_TEST_INTERVAL = 7 # LAB 데이터 내 검사 일자 간 최소간격
 SKIP_LABEL_INTERVAL = 30 # 전해질 이상 발병후 최소간격 (이거보다 길어야지 독립적인 발병)
 

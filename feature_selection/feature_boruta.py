@@ -59,7 +59,7 @@ Follow the steps below to understand the algorithm
 9.Repeat the above steps for predefined number of iterations (random forest runs), 
     or until all attributes are either tagged 'unimportant' or 'important', whichever comes first.
 
-    
+
 '''
 
 def get_timeserial_lab_label(no,lab_test='L3042'):
@@ -169,9 +169,9 @@ def execute_feature_selection_diagnosis(lab_test='L3042'):
     finally:
         lab_store.close()
 
-    result = pool.map_async(get_KCD_column, np.array_split(no_list, 8))
+    result = pool.map_async(get_feature_selection_diagnosis, np.array_split(no_list, CORE_NUMS))
     result_df = pd.concat([x for x in result.get() if x is not None])
-    result_df.to_hdf(FEATURE_DIAGNOSIS_PATH,'prep/{}'.format(LAB_CODE),format='table',data_columns=True,mode='a')
+    result_df.to_hdf(FEATURE_DIAGNOSIS_PATH,'prep/{}'.format(lab_test),format='table',data_columns=True,mode='a')
 
     rf = RandomForestClassifier(n_jobs=-1, class_weight='auto', max_depth=5)
     feat_selector = BorutaPy(rf, n_estimators='auto', verbose=2, random_state=1)
@@ -186,7 +186,7 @@ def execute_feature_selection_diagnosis(lab_test='L3042'):
 
     feat_selector.fit(x.as_matrix(),y.as_matrix())
     code = x.columns[feat_selector.support_]
-    pd.DataFrame(data=code.values,columns=['code']).to_hdf(FEATURE_DIAGNOSIS_PATH,'usecol/{}'.format(LAB_CODE),format='table',data_columns=True,mode='a')
+    pd.DataFrame(data=code.values,columns=['code']).to_hdf(FEATURE_DIAGNOSIS_PATH,'usecol/{}'.format(lab_test),format='table',data_columns=True,mode='a')
 
 
 def execute_feature_selection_prescribe(lab_test='L3042'):
@@ -198,9 +198,9 @@ def execute_feature_selection_prescribe(lab_test='L3042'):
     finally:
         lab_store.close()
 
-    result = pool.map_async(get_KCD_column, np.array_split(no_list, 8))
+    result = pool.map_async(get_feature_selection_prescribe, np.array_split(no_list, CORE_NUMS))
     result_df = pd.concat([x for x in result.get() if x is not None])
-    result_df.to_hdf(FEATURE_PRESCRIBE_PATH,'prep/{}'.format(LAB_CODE),format='table',data_columns=True,mode='a')
+    result_df.to_hdf(FEATURE_PRESCRIBE_PATH,'prep/{}'.format(lab_test),format='table',data_columns=True,mode='a')
 
     rf = RandomForestClassifier(n_jobs=-1, class_weight='auto', max_depth=5)
     feat_selector = BorutaPy(rf, n_estimators='auto', verbose=2, random_state=1)
@@ -215,4 +215,4 @@ def execute_feature_selection_prescribe(lab_test='L3042'):
 
     feat_selector.fit(x.as_matrix(),y.as_matrix())
     code = x.columns[feat_selector.support_]
-    pd.DataFrame(data=code.values,columns=['code']).to_hdf(FEATURE_PRESCRIBE_PATH,'usecol/{}'.format(LAB_CODE),format='table',data_columns=True,mode='a')
+    pd.DataFrame(data=code.values,columns=['code']).to_hdf(FEATURE_PRESCRIBE_PATH,'usecol/{}'.format(lab_test),format='table',data_columns=True,mode='a')
