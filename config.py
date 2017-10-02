@@ -30,13 +30,13 @@ DELIM = '\x0b'  # 구분자
 
 RAW_LABTEST_COLS = ['no','lab_test','date','result'] # RAW lab test data의 column 순서
 RAW_DIAGNOSIS_COLS = ['no','date','KCD_code','description'] # Raw Diagnosis data의 column 순서
-MEDICINE_CONTEXT_COLS = ['medi_code','medi_name','s_date','e_date','ingd','ATC_code','ATC_desc'] # medicine 정보　dataframe의　column순서
+MEDICINE_CONTEXT_COLS = ['medi_code','medi_name','s_date','e_date','ingd','ATC_code','ATC_desc'] # medicine 정보 dataframe의 column순서
 RAW_PRESCRIBE_COLS = ['no','medi_code','ingd_name','date','total','once','times','day'] # 
 
 MIN_DATE = '20110601' # 데이터 시작 날짜
 MAX_DATE = '20170630' # 데이터 종료 날짜
 
-# LABTEST의 응급코드와 비응급코드 간 mapping  dictionary
+# fdjLABTEST의 응급코드와 비응급코드 간 mapping  dictionary
 EMGCY_AND_NOT_DICT = {
     'L8031':'L3011',# 총단백
     'L8032':'L3012',# 알부민
@@ -59,13 +59,15 @@ EMGCY_AND_NOT_DICT = {
 # 데이터 전처리 내 에서의 configuration
 SKIP_TEST_INTERVAL = 7 # LAB 데이터 내 검사 일자 간 최소간격
 
+SKIP_LABEL_INTERVAL = 30 # 전해질 이상 발병후 최소간격 (이거보다 길어야지 독립적인 발병)
+
 KCD_MAP_TYPE = 1 # diagnosis 내 KCD code를 변환시킬 때 기준 
                                   # [0:세분류명 1:소분류명 2:중분류명 ３:대분류명]
 
-KCD_COUNT_STANDARD = 1000 # diagnosis data 내 KCD code의 진단　최소 건수 기준
+KCD_COUNT_STANDARD = 1000 # diagnosis data 내 KCD code의 진단 최소 건수 기준
                                                        # 너무 적은 케이스를 지워서，희소한 KCD code를 삭제 
 
-MEDICINE_COUNT_STANDARD = 1000 # prescribe data 내 약　code의　처방　최소　건수　기준
+MEDICINE_COUNT_STANDARD = 1000 # prescribe data 내 약 code의 처방 최소 건수 기준
                                                                 # 너무 적은 케이스를 지워서，희소한 약 code를 삭제 
 # DEBUG 
 DEBUG_PRINT = True
