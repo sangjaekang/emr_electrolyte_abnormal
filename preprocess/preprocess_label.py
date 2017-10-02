@@ -20,7 +20,7 @@ labtest data에서　환자의　전해질이상　case dataframe을　출력하
             row : case
 '''
 def get_timeserial_lab_label(no,lab_test='L3042',axis=1):
-     global LABEL_PATH, DEBUG_PRINT
+    global LABEL_PATH, DEBUG_PRINT
     # 전해질코드에 따른 환자의 전해질 이상 label dataframe을 출력하는 함수
 
     #전처리된 데이터가 없으면 전처리하여 생성
@@ -30,7 +30,7 @@ def get_timeserial_lab_label(no,lab_test='L3042',axis=1):
 
     label_store = pd.HDFStore(LABEL_PATH,mode='r')
     try:
-        target_df = label_store.select('label/{}'.format(LABEL_PATH),where='no=={}'.format(no))
+        target_df = label_store.select('label/{}'.format(lab_test),where='no=={}'.format(no))
     finally:
         label_store.close()
     if axis==1:

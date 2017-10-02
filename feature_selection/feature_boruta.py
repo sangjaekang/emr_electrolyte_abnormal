@@ -156,7 +156,7 @@ def get_feature_selection_diagnosis(no_list,lab_test='L3042'):
         if not df.empty: 
             result_list.append(df)
      
-     if len(result_list) > 0: 
+    if len(result_list) > 0: 
         return pd.concat(result_list)
 
 
