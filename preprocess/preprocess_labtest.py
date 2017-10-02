@@ -88,7 +88,7 @@ def preprocess_labtest():
 
     # original value로 저장
     orginal_lab_df = pre_lab_df.copy()
-    orginal_lab_df.loc[:,'result'] = orginal_lab_df.lab_test.map(change_number)
+    orginal_lab_df.loc[:,'result'] = orginal_lab_df.result.map(change_number)
     orginal_lab_df.to_hdf(LABTEST_PATH,'original',format='table',data_columns=True,mode='a')
 
     # 각 검사별로 normalizing 적용
