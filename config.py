@@ -25,6 +25,9 @@ LABTEST_PATH = PREP_DIR + 'labtest.h5'
 DIAGNOSIS_PATH = PREP_DIR + 'diagnosis.h5'
 PRESCRIBE_PATH = PREP_DIR + 'prescribe.h5'
 
+FEATURE_DIAGNOSIS_PATH = PREP_DIR + 'feature_selection_diagnosis.h5'
+FEATURE_PRESCRIBE_PATH = PREP_DIR + 'feature_selection_prescribe.h5'
+
 # RAW DATA 특성 
 DELIM = '\x0b'  # 구분자
 
@@ -58,7 +61,6 @@ EMGCY_AND_NOT_DICT = {
 
 # 데이터 전처리 내 에서의 configuration
 SKIP_TEST_INTERVAL = 7 # LAB 데이터 내 검사 일자 간 최소간격
-
 SKIP_LABEL_INTERVAL = 30 # 전해질 이상 발병후 최소간격 (이거보다 길어야지 독립적인 발병)
 
 KCD_MAP_TYPE = 1 # diagnosis 내 KCD code를 변환시킬 때 기준 
@@ -71,3 +73,4 @@ MEDICINE_COUNT_STANDARD = 1000 # prescribe data 내 약 code의 처방 최소 �
                                                                 # 너무 적은 케이스를 지워서，희소한 약 code를 삭제 
 # DEBUG 
 DEBUG_PRINT = True
+
