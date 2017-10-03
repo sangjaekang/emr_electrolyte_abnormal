@@ -25,6 +25,7 @@ LABTEST_PATH = PREP_DIR + 'labtest.h5'
 DIAGNOSIS_PATH = PREP_DIR + 'diagnosis.h5'
 PRESCRIBE_PATH = PREP_DIR + 'prescribe.h5'
 LABEL_PATH = PREP_DIR + 'label.h5'
+DEMO_PATH = PREP_DIR + 'demo.h5'
 
 FEATURE_DIAGNOSIS_PATH = PREP_DIR + 'feature_selection_diagnosis.h5'
 FEATURE_PRESCRIBE_PATH = PREP_DIR + 'feature_selection_prescribe.h5'
@@ -36,6 +37,7 @@ RAW_LABTEST_COLS = ['no','lab_test','date','result'] # RAW lab test data의 colu
 RAW_DIAGNOSIS_COLS = ['no','date','KCD_code','description'] # Raw Diagnosis data의 column 순서
 MEDICINE_CONTEXT_COLS = ['medi_code','medi_name','s_date','e_date','ingd','ATC_code','ATC_desc'] # medicine 정보 dataframe의 column순서
 RAW_PRESCRIBE_COLS = ['no','medi_code','ingd_name','date','total','once','times','day'] # 
+RAW_DEMO_COLS = ['no','sex','age']
 
 MIN_DATE = '20110601' # 데이터 시작 날짜
 MAX_DATE = '20170630' # 데이터 종료 날짜
