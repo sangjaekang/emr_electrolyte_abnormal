@@ -9,17 +9,20 @@ from config import *
 import preprocess.preprocess_labtest as lab
 '''
 LABEL DATA I/O 관련 모듈
-labtest data에서　환자의　전해질이상　case dataframe을　출력하는　함수
+labtest data에서 환자의 전해질이상 case dataframe을 출력하는 함수
 
 핵심 메소드
     * get_timeserial_lab_label(no)
-        환자의　전해질이상　case dataframe을　출력하는　함수
+        환자의 전해질이상 case dataframe을 출력하는 함수
         ----
         output matrix property
             columns : no lab_test date result label
             row : case
     * preprocess_label(lab_test)
-        lab_test code 기준으로　환자의　전해질이상에　대한　labeling을　하는　함수
+        lab_test code 기준으로 환자의 전해질이상에 대한 labeling을 하는 함수
+
+    * split_train_validation_test()
+        환자 번호 기준으로 train-validation-split을 나누는 함수
 '''
 def get_timeserial_lab_label(no,lab_test='L3042',axis=1):
     global LABEL_PATH, DEBUG_PRINT
@@ -97,6 +100,7 @@ def preprocess_label(lab_test):
     concat_df = pd.concat(label_list)
     concat_df[['no','date','label']].to_hdf(LABEL_PATH,'label/{}'.format(lab_test),format='table',data_columns=True,mode='a')
     if DEBUG_PRINT: print("preprocess_label ends")
+    split_train_validation_test()
 
 def split_train_validation_test():
     global DEBUG_PRINT, LABEL_PATH
@@ -120,6 +124,98 @@ def split_train_validation_test():
     pd.DataFrame(data=test_no,columns=['no']).to_hdf(LABEL_PATH,'split/test',format='table',data_columns=True,mode='a')
     pd.DataFrame(data=validation_no,columns=['no']).to_hdf(LABEL_PATH,'split/validation',format='table',data_columns=True,mode='a')
     if DEBUG_PRINT: print("split_train_validation_test ends")
+
+
+def get_not_sparse_data(lab_test):
+    '''
+    data중에서　지나치게　sparse한　데이터가　존재하는　경우，
+    학습에　어려움이　있음
+    미리　지나치게　sparse한　데이터인　경우들을　체크해두고，
+    이를　dataset에서　포함시키지　않고자　함
+    '''
+    global CORE_NUMS, DEBUG_PRINT, LABEL_PATH, GAP_PERIOD, TARGET_PERIOD, SKIP_DIAG_COUNTS, SKIP_LAB_COUNTS
+    
+    label_store = pd.HDFStore(LABEL_PATH,mode='r')
+    if DEBUG_PRINT: print("check the existence of get_not_sparse_data")
+    try:
+        if '/metadata/{}'.format(lab_test) in label_store.keys():
+            metadata_df = label_store.select('/metadata/{}'.format(lab_test))
+            if (metadata_df.result.GAP_PERIOD == GAP_PERIOD)|\
+                (metadata_df.result.TARGET_PERIOD == TARGET_PERIOD)|\
+                (metadata_df.result.SKIP_DIAG_COUNTS == SKIP_DIAG_COUNTS)|\
+                (metadata_df.result.SKIP_LAB_COUNTS == SKIP_LAB_COUNTS):
+                
+                if DEBUG_PRINT:
+                    print("'get_not_sparse_data' output exists! ")
+                return
+        label_df = label_store.select('label/{}'.format(lab_test))
+    finally:
+        label_store.close()
+    
+    if DEBUG_PRINT: print("get_not_sparse_data starts")
+    no_list = label_df.no.unique()
+    pool = Pool()
+    result = pool.map_async(_get_not_sparse_data, np.array_split(no_list, CORE_NUMS))
+    result_df = pd.concat([x for x in result.get() if x is not None])
+    
+    result_df.no = result_df.no.astype(int)
+    result_df.label = result_df.label.astype(int)
+    result_df.diag_counts = result_df.diag_counts.astype(int)
+    result_df.pres_counts = result_df.pres_counts.astype(int)
+    result_df.lab_counts = result_df.lab_counts.astype(int)
+
+    result_df.to_hdf(LABEL_PATH,'prep/label/{}'.format(lab_test),format='table',data_columns=True,mode='a')
+    # save the metadata about the this dataset
+    metadata_df = pd.DataFrame(index=['GAP_PERIOD','TARGET_PERIOD','SKIP_DIAG_COUNTS','SKIP_LAB_COUNTS'],
+                               columns=['result'])
+    metadata_df.loc['GAP_PERIOD','result'] = GAP_PERIOD
+    metadata_df.loc['TARGET_PERIOD','result'] = TARGET_PERIOD
+    metadata_df.loc['SKIP_DIAG_COUNTS','result'] = SKIP_DIAG_COUNTS
+    metadata_df.loc['SKIP_LAB_COUNTS','result'] = SKIP_LAB_COUNTS
+    metadata_df.to_hdf(LABEL_PATH,'/metadata/{}'.format(lab_test),format='table',data_columns=True,mode='a')
+    
+    if DEBUG_PRINT: print("get_not_sparse_data ends")
+
+def _get_not_sparse_data(no_list):
+    global DEBUG_PRINT, LABEL_PATH, GAP_PERIOD, TARGET_PERIOD, SKIP_DIAG_COUNTS, SKIP_LAB_COUNTS
+
+    if DEBUG_PRINT: print("_get_not_sparse_data starts")
+    label_store = pd.HDFStore(LABEL_PATH,mode='r')
+    try:
+        label_df = label_store.select('label/L3042')
+    finally:
+        label_store.close()
+
+    result_df = pd.DataFrame(columns=['no','date','diag_counts','pres_counts','lab_counts','label'])
+    for no in no_list:
+        diag_ts_df = diag.get_timeserial_diagnosis_df(no)
+        pres_ts_df = pres.get_timeserial_prescribe_df(no)
+        lab_ts_df  = lab.get_timeserial_lab_df(no)
+        for _,row in label_df[label_df.no==no].iterrows():
+            g_p = np.timedelta64(GAP_PERIOD,'D')
+            t_p = np.timedelta64(TARGET_PERIOD,'D')
+            t_day = row.date- g_p
+            f_day = t_day - t_p
+            diag_counts = get_df_between_date(diag_ts_df,t_day,f_day)
+            pres_counts = get_df_between_date(pres_ts_df,t_day,f_day)
+            lab_counts = get_df_between_date_lab(lab_ts_df,t_day,f_day)
+
+            if (diag_counts>SKIP_DIAG_COUNTS) or (diag_counts>SKIP_LAB_COUNTS):
+                _row = row.set_value('diag_counts',diag_counts)\
+                          .set_value('pres_counts',pres_counts)\
+                          .set_value('lab_counts',lab_counts)
+                result_df = result_df.append(_row,ignore_index=True)
+    
+    if DEBUG_PRINT: print("_get_not_sparse_data ends")
+    return result_df
+
+def get_df_between_date(df, t_day,f_day):
+    return df.loc[:,df.columns[(df.columns > f_day) & (df.columns < t_day)]].sum().sum()
+
+
+def get_df_between_date_lab(df, t_day,f_day):
+    return df.loc[:,df.columns[(df.columns > f_day) & (df.columns < t_day)]].count().sum()
+
 
 def convert_na_label(x):
     if x < 135:

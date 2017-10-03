@@ -68,6 +68,11 @@ CORE_NUMS = 12 # cpu core 수
 SKIP_TEST_INTERVAL = 7 # LAB 데이터 내 검사 일자 간 최소간격
 SKIP_LABEL_INTERVAL = 30 # 전해질 이상 발병후 최소간격 (이거보다 길어야지 독립적인 발병)
 
+# Input data의 최소 데이터 갯수
+# 이것보다 적으면 too much sparse로 어려움
+SKIP_DIAG_COUNTS = 1 # INPUT DATA 중 최소 진단 코드의 횟수
+SKIP_LAB_COUNTS = 10 # INPUT DATA 중 최소 lab test의 횟수
+
 KCD_MAP_TYPE = 1 # diagnosis 내 KCD code를 변환시킬 때 기준 
                                   # [0:세분류명 1:소분류명 2:중분류명 ３:대분류명]
 
@@ -78,4 +83,13 @@ MEDICINE_COUNT_STANDARD = 1000 # prescribe data 내 약 code의 처방 최소 �
                                                                 # 너무 적은 케이스를 지워서，희소한 약 code를 삭제 
 # DEBUG 
 DEBUG_PRINT = True
+
+# 데이터예측시 시간간격
+#   시간순 －－－－－－＞
+#        TARGET_PERIOD <-> GAP_PERIOD <-> PREDICTION_PERIOD
+GAP_PERIOD = 7 # TARGET_PERIOD와 PREDICITON_PERIOD 사이 gap 기간
+TARGET_PERIOD = 60 # prediction 할 때 Input 시간
+
+
+
 
