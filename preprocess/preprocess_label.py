@@ -9,7 +9,6 @@ from config import *
 import preprocess.preprocess_labtest as lab
 import preprocess.preprocess_diagnosis as diag
 import preprocess.preprocess_prescribe as pres
-import preprocess.preprocess_label as label
 
 from multiprocessing import Pool
 '''
