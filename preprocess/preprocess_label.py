@@ -18,6 +18,8 @@ labtest data에서　환자의　전해질이상　case dataframe을　출력하
         output matrix property
             columns : no lab_test date result label
             row : case
+    * preprocess_label(lab_test)
+        lab_test code 기준으로　환자의　전해질이상에　대한　labeling을　하는　함수
 '''
 def get_timeserial_lab_label(no,lab_test='L3042',axis=1):
     global LABEL_PATH, DEBUG_PRINT
@@ -95,6 +97,29 @@ def preprocess_label(lab_test):
     concat_df = pd.concat(label_list)
     concat_df[['no','date','label']].to_hdf(LABEL_PATH,'label/{}'.format(lab_test),format='table',data_columns=True,mode='a')
     if DEBUG_PRINT: print("preprocess_label ends")
+
+def split_train_validation_test():
+    global DEBUG_PRINT, LABEL_PATH
+    if DEBUG_PRINT: print("split_train_validation_test starts")
+    label_store = pd.HDFStore(LABEL_PATH,mode='r')
+    try:
+        target_df = label_store.select('label/{}'.format(lab_test))
+    finally:
+        label_store.close()
+
+    # (ratio) : train - validation - test  = 0.7 : 0.1 : 0.2
+    no_list = target_df.no.unique()
+    train_no, test_no = train_test_split(no_list,test_size=0.3)
+    test_no, validation_no = train_test_split(test_no,test_size=0.33)
+
+    train_no.sort()
+    test_no.sort()
+    validation_no.sort()
+
+    pd.DataFrame(data=train_no,columns=['no']).to_hdf(LABEL_PATH,'split/train',format='table',data_columns=True,mode='a')
+    pd.DataFrame(data=test_no,columns=['no']).to_hdf(LABEL_PATH,'split/test',format='table',data_columns=True,mode='a')
+    pd.DataFrame(data=validation_no,columns=['no']).to_hdf(LABEL_PATH,'split/validation',format='table',data_columns=True,mode='a')
+    if DEBUG_PRINT: print("split_train_validation_test ends")
 
 def convert_na_label(x):
     if x < 135:
