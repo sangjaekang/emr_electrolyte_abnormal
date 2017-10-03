@@ -7,6 +7,11 @@ sys.path.append(BASE_PATH)
 
 from config import *
 import preprocess.preprocess_labtest as lab
+import preprocess.preprocess_diagnosis as diag
+import preprocess.preprocess_prescribe as pres
+import preprocess.preprocess_label as label
+
+from multiprocessing import Pool
 '''
 LABEL DATA I/O 관련 모듈
 labtest data에서 환자의 전해질이상 case dataframe을 출력하는 함수
@@ -166,7 +171,7 @@ def get_not_sparse_data(lab_test):
 
     result_df.to_hdf(LABEL_PATH,'prep/label/{}'.format(lab_test),format='table',data_columns=True,mode='a')
     # save the metadata about the this dataset
-    
+
     metadata_df = pd.DataFrame(index=['GAP_PERIOD','TARGET_PERIOD','SKIP_DIAG_COUNTS','SKIP_LAB_COUNTS'],
                                columns=['result'])
     metadata_df.loc['GAP_PERIOD','result'] = GAP_PERIOD
