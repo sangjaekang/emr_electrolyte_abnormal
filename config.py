@@ -88,8 +88,5 @@ DEBUG_PRINT = True
 #   시간순 －－－－－－＞
 #        TARGET_PERIOD <-> GAP_PERIOD <-> PREDICTION_PERIOD
 GAP_PERIOD = 7 # TARGET_PERIOD와 PREDICITON_PERIOD 사이 gap 기간
-TARGET_PERIOD = 60 # prediction 할 때 Input 시간
-
-
-
-
+TARGET_PERIOD = 180 # prediction 할 때 Input 시간
+PREDICTION_PERIOD = 60 # prediction 할 때 예측범위 시간

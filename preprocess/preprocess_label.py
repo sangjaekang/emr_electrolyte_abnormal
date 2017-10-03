@@ -25,7 +25,7 @@ labtest data에서 환자의 전해질이상 case dataframe을 출력하는 함�
         환자 번호 기준으로 train-validation-split을 나누는 함수
 '''
 def get_timeserial_lab_label(no,lab_test='L3042',axis=1):
-    global LABEL_PATH, DEBUG_PRINT
+    global LABEL_PATH, DEBUG_PRINT, MIN_DATE, MAX_DATE
     # 전해질코드에 따른 환자의 전해질 이상 label dataframe을 출력하는 함수
 
     #전처리된 데이터가 없으면 전처리하여 생성
@@ -166,41 +166,47 @@ def get_not_sparse_data(lab_test):
 
     result_df.to_hdf(LABEL_PATH,'prep/label/{}'.format(lab_test),format='table',data_columns=True,mode='a')
     # save the metadata about the this dataset
+    
     metadata_df = pd.DataFrame(index=['GAP_PERIOD','TARGET_PERIOD','SKIP_DIAG_COUNTS','SKIP_LAB_COUNTS'],
                                columns=['result'])
     metadata_df.loc['GAP_PERIOD','result'] = GAP_PERIOD
     metadata_df.loc['TARGET_PERIOD','result'] = TARGET_PERIOD
     metadata_df.loc['SKIP_DIAG_COUNTS','result'] = SKIP_DIAG_COUNTS
     metadata_df.loc['SKIP_LAB_COUNTS','result'] = SKIP_LAB_COUNTS
+    metadata_df.result = metadata_df.result.astype(int)
     metadata_df.to_hdf(LABEL_PATH,'/metadata/{}'.format(lab_test),format='table',data_columns=True,mode='a')
     
     if DEBUG_PRINT: print("get_not_sparse_data ends")
 
-def _get_not_sparse_data(no_list):
-    global DEBUG_PRINT, LABEL_PATH, GAP_PERIOD, TARGET_PERIOD, SKIP_DIAG_COUNTS, SKIP_LAB_COUNTS
+def _get_not_sparse_data(no_list,lab_test='L3042'):
+    global DEBUG_PRINT, LABEL_PATH, MIN_DATE, GAP_PERIOD, TARGET_PERIOD, PREDICTION_PERIOD, SKIP_DIAG_COUNTS, SKIP_LAB_COUNTS
 
     if DEBUG_PRINT: print("_get_not_sparse_data starts")
     label_store = pd.HDFStore(LABEL_PATH,mode='r')
     try:
-        label_df = label_store.select('label/L3042')
+        label_df = label_store.select('label/{}'.format(lab_test))
     finally:
         label_store.close()
-
     result_df = pd.DataFrame(columns=['no','date','diag_counts','pres_counts','lab_counts','label'])
     for no in no_list:
         diag_ts_df = diag.get_timeserial_diagnosis_df(no)
         pres_ts_df = pres.get_timeserial_prescribe_df(no)
         lab_ts_df  = lab.get_timeserial_lab_df(no)
         for _,row in label_df[label_df.no==no].iterrows():
-            g_p = np.timedelta64(GAP_PERIOD,'D')
-            t_p = np.timedelta64(TARGET_PERIOD,'D')
-            t_day = row.date- g_p
-            f_day = t_day - t_p
+            #target_period 처음　날짜(t_day)와　끝　날짜(f_day)　
+            t_day = row.date- np.timedelta64(GAP_PERIOD,'D')
+            f_day = t_day - np.timedelta64(TARGET_PERIOD,'D')
+            
+            #target_period 사이의　데이터　갯수
             diag_counts = get_df_between_date(diag_ts_df,t_day,f_day)
             pres_counts = get_df_between_date(pres_ts_df,t_day,f_day)
             lab_counts = get_df_between_date_lab(lab_ts_df,t_day,f_day)
-
-            if (diag_counts>SKIP_DIAG_COUNTS) or (diag_counts>SKIP_LAB_COUNTS):
+            
+            #target_period 사이의　데이터가　너무　sparse하거나，
+            #시간　범위가　벗어나면　skip
+            if (diag_counts>SKIP_DIAG_COUNTS) or \
+            (diag_counts>SKIP_LAB_COUNTS) or \
+            (f_day-np.timedelta64(PREDICTION_PERIOD,'D')>= np.timedelta64(MIN_DATE,'D')):
                 _row = row.set_value('diag_counts',diag_counts)\
                           .set_value('pres_counts',pres_counts)\
                           .set_value('lab_counts',lab_counts)
@@ -212,10 +218,8 @@ def _get_not_sparse_data(no_list):
 def get_df_between_date(df, t_day,f_day):
     return df.loc[:,df.columns[(df.columns > f_day) & (df.columns < t_day)]].sum().sum()
 
-
 def get_df_between_date_lab(df, t_day,f_day):
     return df.loc[:,df.columns[(df.columns > f_day) & (df.columns < t_day)]].count().sum()
-
 
 def convert_na_label(x):
     if x < 135:
