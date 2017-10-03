@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-%matplotlib inline
 import sys, os, re
 import pandas as pd
 import numpy as np

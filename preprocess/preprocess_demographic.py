@@ -6,7 +6,26 @@ BASE_PATH = os_path[:find_path.search(os_path).span()[1]]
 sys.path.append(BASE_PATH)
 
 from config import *
+'''
+DEMOGRAPHIC DATA I/O 관련 모듈
+demographic data를 전처리하고， 환자 관련된 time-serial dataframe을 출력하는 함수
 
+핵심 메소드
+    * get_timeserial_diagnosis_df(no)
+        환자별 time-serial한 diagnosis 결과를 출력하는 메소드
+        ----
+        output matrix property
+            
+            row : KCD_code
+            columns  : time-serial column (MIN DATE 부터 MAX DATE까지 time-serial datetime) 
+            value :   1-발병O / 0-발병X
+    * preprocess_diagnosis()
+        raw data ( 병원에서 받은 original 자료)를 전처리하여 저장하는 메소드
+        ----
+        output hdf5 property
+            prep : raw data중 KCD_Code를 통일시키고， 불필요 code를 제거하여 저장한 dataframe
+            metadata/usecol : 각 KCD_code 별 case 갯수
+'''
 def get_timeserial_demographic(no):
     global DEMO_PATH
     #전처리된 데이터가 없으면 전처리하여 생성
