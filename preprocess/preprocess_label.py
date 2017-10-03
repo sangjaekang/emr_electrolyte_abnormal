@@ -182,13 +182,13 @@ def get_not_sparse_data(lab_test):
     
     if DEBUG_PRINT: print("get_not_sparse_data ends")
 
-def _get_not_sparse_data(no_list,lab_test='L3042'):
+def _get_not_sparse_data(no_list):
     global DEBUG_PRINT, LABEL_PATH, MIN_DATE, GAP_PERIOD, TARGET_PERIOD, PREDICTION_PERIOD, SKIP_DIAG_COUNTS, SKIP_LAB_COUNTS
 
     if DEBUG_PRINT: print("_get_not_sparse_data starts")
     label_store = pd.HDFStore(LABEL_PATH,mode='r')
     try:
-        label_df = label_store.select('label/{}'.format(lab_test))
+        label_df = label_store.select('label/L3042')
     finally:
         label_store.close()
     result_df = pd.DataFrame(columns=['no','date','diag_counts','pres_counts','lab_counts','label'])
@@ -199,6 +199,7 @@ def _get_not_sparse_data(no_list,lab_test='L3042'):
         for _,row in label_df[label_df.no==no].iterrows():
             #target_period 처음　날짜(t_day)와　끝　날짜(f_day)　
             t_day = row.date- np.timedelta64(GAP_PERIOD,'D')
+            global f_day
             f_day = t_day - np.timedelta64(TARGET_PERIOD,'D')
             
             #target_period 사이의　데이터　갯수
@@ -210,7 +211,7 @@ def _get_not_sparse_data(no_list,lab_test='L3042'):
             #시간　범위가　벗어나면　skip
             if (diag_counts>SKIP_DIAG_COUNTS) or \
             (diag_counts>SKIP_LAB_COUNTS) or \
-            (f_day-np.timedelta64(PREDICTION_PERIOD,'D')>= np.timedelta64(MIN_DATE,'D')):
+            (f_day-np.timedelta64(PREDICTION_PERIOD,'D') >= np.datetime64(MIN_DATE[:4]+'-'+MIN_DATE[4:6]+'-'+MIN_DATE[6:])):
                 _row = row.set_value('diag_counts',diag_counts)\
                           .set_value('pres_counts',pres_counts)\
                           .set_value('lab_counts',lab_counts)
