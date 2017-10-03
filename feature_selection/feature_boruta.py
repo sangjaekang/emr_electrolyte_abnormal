@@ -132,8 +132,8 @@ def get_feature_selection_prescribe(no_list,lab_test='L3042'):
                 df = df.append(x,ignore_index=True)
         if not df.empty:
             result_list.append(df)
-        if len(result_list) > 0:
-            return pd.concat(result_list)
+    if len(result_list) > 0:
+        return pd.concat(result_list)
 
 
 def get_feature_selection_diagnosis(no_list,lab_test='L3042'):        
