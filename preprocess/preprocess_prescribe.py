@@ -28,7 +28,7 @@ prescribe data를 전처리하고， 환자 관련된 time-serial dataframe을 �
             metadata/usecol : 각 KCD_code 별 case 갯수
             metadata/mapping_table : 약 성분 별 mapping_code  테이블
 '''
-def get_timeserial_prescribe_df(no):
+def get_timeserial_prescribe_df(no,feature_selected=True):
     # 환자에 대한 시계열 'prescribe' dataframe을 구하는 함수
     global DEBUG_PRINT, MIN_DATE, MAX_DATE, PRESCRIBE_PATH
     
@@ -40,14 +40,17 @@ def get_timeserial_prescribe_df(no):
     prescribe_store = pd.HDFStore(PRESCRIBE_PATH,mode='r')
     try:
         target_df = prescribe_store.select('prep',where='no=={}'.format(no))
-        usecol = prescribe_store.select('metadata/usecol')
+        if feature_selected:
+            usecol = diagnosis_store.select('metadata/boruta').code.values
+        else:
+            usecol = diagnosis_store.select('metadata/usecol').index
     finally:
         prescribe_store.close()
     _y = target_df[['no','date','mapping_code']]\
            .pivot_table(index=['mapping_code'],columns=['date'])\
            .applymap(lambda x : 1.0 if not np.isnan(x) else 0.0)
     _y.columns= _y.columns.droplevel()
-    _y = _y.reindex(index=usecol.index,columns=pd.date_range(MIN_DATE,MAX_DATE,freq='D'))
+    _y = _y.reindex(index=usecol,columns=pd.date_range(MIN_DATE,MAX_DATE,freq='D'))
 
     # 복용일수만큼 그 구간을 １로 채워줌
     for _, row in target_df.iterrows():

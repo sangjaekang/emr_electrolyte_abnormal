@@ -26,7 +26,7 @@ diagnosis data를 전처리하고， 환자 관련된 time-serial dataframe을 �
             prep : raw data중 KCD_Code를 통일시키고， 불필요 code를 제거하여 저장한 dataframe
             metadata/usecol : 각 KCD_code 별 case 갯수
 '''
-def get_timeserial_diagnosis_df(no):
+def get_timeserial_diagnosis_df(no,feature_selected=True):
     # 환자에 대한 시계열 'lab_test' dataframe을 구하는 함수
     global DEBUG_PRINT, MIN_DATE, MAX_DATE, DIAGNOSIS_PATH
     
@@ -38,7 +38,10 @@ def get_timeserial_diagnosis_df(no):
     diagnosis_store = pd.HDFStore(DIAGNOSIS_PATH,mode='r')
     try:
         target_df = diagnosis_store.select('prep',where='no=={}'.format(no))
-        usecol = diagnosis_store.select('metadata/usecol')
+        if feature_selected:
+            usecol = diagnosis_store.select('metadata/boruta').code.values
+        else:
+            usecol = diagnosis_store.select('metadata/usecol').index
     finally:
         diagnosis_store.close()
     _y = target_df[['no','date','KCD_code']]\
@@ -46,7 +49,7 @@ def get_timeserial_diagnosis_df(no):
            .applymap(lambda x : 1.0 if not np.isnan(x) else 0.0)
     
     _y.columns= _y.columns.droplevel()
-    return _y.reindex(index=usecol.index,columns=pd.date_range(MIN_DATE,MAX_DATE,freq='D')).fillna(0.0)
+    return _y.reindex(index=usecol,columns=pd.date_range(MIN_DATE,MAX_DATE,freq='D')).fillna(0.0)
 
 def preprocess_diagnosis():
     # RAW diagnosis data를 전처리하는 함수 

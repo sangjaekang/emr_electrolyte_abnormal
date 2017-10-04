@@ -186,6 +186,7 @@ def execute_feature_selection_diagnosis(lab_test='L3042'):
     feat_selector.fit(x.as_matrix(),y.as_matrix())
     code = x.columns[feat_selector.support_]
     pd.DataFrame(data=code.values,columns=['code']).to_hdf(FEATURE_DIAGNOSIS_PATH,'usecol/{}'.format(lab_test),format='table',data_columns=True,mode='a')
+        pd.DataFrame(data=code.values,columns=['code']).to_hdf(DIAGNOSIS_PATH,'metadata/boruta',format='table',data_columns=True,mode='a')
 
 
 def execute_feature_selection_prescribe(lab_test='L3042'):
@@ -215,3 +216,4 @@ def execute_feature_selection_prescribe(lab_test='L3042'):
     feat_selector.fit(x.as_matrix(),y.as_matrix())
     code = x.columns[feat_selector.support_]
     pd.DataFrame(data=code.values,columns=['code']).to_hdf(FEATURE_PRESCRIBE_PATH,'usecol/{}'.format(lab_test),format='table',data_columns=True,mode='a')
+    pd.DataFrame(data=code.values,columns=['code']).to_hdf(PRESCRIBE_PATH,'metadata/boruta',format='table',data_columns=True,mode='a')
