@@ -38,6 +38,8 @@ def get_timeserial_demographic(no):
         demo_df = demo_store.select('prep',where='no=={}'.format(no))
     finally:
         demo_store.close()
+    min_year = int(MIN_DATE) // 10000
+    max_year = int(MAX_DATE) // 10000    
 
     sex = demo_df.sex.values[0]
     age = demo_df.age.values[0]
