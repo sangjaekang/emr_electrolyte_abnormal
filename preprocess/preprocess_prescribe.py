@@ -49,14 +49,12 @@ def get_timeserial_prescribe_df(no,feature_selected=True):
     _y = target_df[['no','date','mapping_code']]\
            .pivot_table(index=['mapping_code'],columns=['date'])\
            .applymap(lambda x : 1.0 if not np.isnan(x) else 0.0)
-    _y.index = _y.index.astype(str)
+    _y.index = _y.index.map(str)
     _y.columns= _y.columns.droplevel()
     _y = _y.reindex(index=usecol,columns=pd.date_range(MIN_DATE,MAX_DATE,freq='D'))
-
     # 복용일수만큼 그 구간을 １로 채워줌
-    for _, row in target_df.iterrows():
-        _y.loc[row.mapping_code,row.date:row.date+np.timedelta64(int(row.day),'D')] = 1.0
-
+    for _, row in target_df[target_df.mapping_code.isin(usecol)].iterrows():
+        _y.loc[str(row.mapping_code),row.date:row.date+np.timedelta64(int(row.day),'D')] = 1.0
     return _y.fillna(0.0)
     
 def preprocess_prescirbe():
