@@ -15,10 +15,13 @@ import preprocess.preprocess_demographic as demo
 
 from multiprocessing import Pool
 
-def skip_case(lab_test, diag_counts, pres_counts, lab_counts):
+def skip_case(lab_test, diag_counts=None, pres_counts=None, lab_counts=None,types='train'):
     # diag_counts, pres_counts, lab_counts가 기준치에 미달할 경우
     # 그 case는 모델 학습에서 제외시킴
     # Too sparse를 피하기 위함
+    # diag_counts / pres_counts / lab_counts : 각데이터별최소갯수
+    # types : total / train / test / validation
+
     global LABEL_PATH
     label_store = pd.HDFStore(LABEL_PATH,mode='r')
     try:
@@ -55,19 +58,26 @@ def skip_case(lab_test, diag_counts, pres_counts, lab_counts):
         
         no_list = label_store.select('split/test').no
         print("* test 갯수----")
-        train_df = result_df[result_df.no.isin(no_list)]
-        for label,counts in train_df.label.value_counts().items():
+        test_df = result_df[result_df.no.isin(no_list)]
+        for label,counts in test_df.label.value_counts().items():
             print("   {} label - {} counts".format(label,counts))
 
         no_list = label_store.select('split/validation').no
         print("* Validation 갯수----")
-        train_df = result_df[result_df.no.isin(no_list)]
-        for label,counts in train_df.label.value_counts().items():
+        validation_df = result_df[result_df.no.isin(no_list)]
+        for label,counts in validation_df.label.value_counts().items():
             print("   {} label - {} counts".format(label,counts))
     finally:
         label_store.close()
         
-    return result_df
+    if types=='total':
+        return result_df
+    elif types=='train':
+        return train_df
+    elif types=='test':
+        return test_df
+    elif types=='validation':
+        return result_df
 
 def get_diag_ts_df(no,date):
     global GAP_PERIOD, TARGET_PERIOD
@@ -104,10 +114,18 @@ def get_lab_ts_df(no,date):
     lab_ts_df = lab.get_timeserial_lab_df(no).loc[:,f_day:t_day]
     return lab_ts_df
 
-def get_patient_ts_df(no,date):
-    global GAP_PERIOD, TARGET_PERIOD
-    demo_df = get_demo_ts_df(no,date)
-    pres_df   = get_pres_ts_df(no,date)
-    diag_df   = get_diag_ts_df(no,date)
-    lab_df     = get_lab_ts_df(no,date)
+def get_patient_ts_df(no,t_day,f_day):
+    demo_df = demo.get_timeserial_demographic(no).loc[:,f_day:t_day]
+    pres_df = pres.get_timeserial_prescribe_df(no).loc[:,f_day:t_day]    
+    lab_df = lab.get_timeserial_lab_df(no).loc[:,f_day:t_day]
+
+    diag_df = diag.get_timeserial_diagnosis_df(no).loc[:,f_day:t_day]
+    # 기간동안 ２번이상 진단코드가 있으면，그 사이를 채움
+    code_count = diag_df.sum(1)
+    for code, _ in code_count[code_count >1].items():
+        ts_series = diag_df.loc[code,:]
+        first_code_day = ts_series[ts_series==1].index[0]
+        last_code_day = ts_series[ts_series==1].index[-1]
+        diag_df.loc[code,first_code_day:last_code_day] = 1.0
+            
     return pd.concat([demo_df,pres_df,diag_df,lab_df])
