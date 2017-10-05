@@ -15,6 +15,16 @@ import preprocess.preprocess_demographic as demo
 
 from multiprocessing import Pool
 
+def memoize(func):
+    cache = {}
+    def memoizer(*args, **kwargs):
+        key = str(args) + str(kwargs)
+        if key not in cache:
+            cache[key] = func(*args, **kwargs)
+        return cache[key]
+    return memoizer
+
+@memoize
 def skip_case(lab_test, diag_counts=None, pres_counts=None, lab_counts=None,types='train'):
     # diag_counts, pres_counts, lab_counts가 기준치에 미달할 경우
     # 그 case는 모델 학습에서 제외시킴
@@ -127,5 +137,61 @@ def get_patient_ts_df(no,t_day,f_day):
         first_code_day = ts_series[ts_series==1].index[0]
         last_code_day = ts_series[ts_series==1].index[-1]
         diag_df.loc[code,first_code_day:last_code_day] = 1.0
+
+    return pd.concat([demo_df,pres_df,diag_df,lab_df])
+
+def get_patient_ts_df(no,t_day,f_day):
+    demo_df = demo.get_timeserial_demographic(no).loc[:,f_day:t_day]
+    pres_df = pres.get_timeserial_prescribe_df(no).loc[:,f_day:t_day]    
+    lab_df = lab.get_timeserial_lab_df(no).loc[:,f_day:t_day]
+
+    diag_df = diag.get_timeserial_diagnosis_df(no).loc[:,f_day:t_day]
+    # 기간동안 ２번이상 진단코드가 있으면，그 사이를 채움
+    code_count = diag_df.sum(1)
+    for code, _ in code_count[code_count >1].items():
+        ts_series = diag_df.loc[code,:]
+        first_code_day = ts_series[ts_series==1].index[0]
+        last_code_day = ts_series[ts_series==1].index[-1]
+        diag_df.loc[code,first_code_day:last_code_day] = 1.0
             
     return pd.concat([demo_df,pres_df,diag_df,lab_df])
+
+def _make_patient_dataset(skip_df):
+    global GAP_PERIOD, TARGET_PERIOD
+    result = []
+    for _, row in skip_df.iterrows():
+        t_day = row.date - np.timedelta64(GAP_PERIOD,'D')
+        f_day = t_day - np.timedelta64(TARGET_PERIOD-1,'D')
+
+        df = get_patient_ts_df(row.no,t_day,f_day)\
+                .fillna(0.0)\
+                .as_matrix()
+        result.append(df)
+    return np.stack(result), skip_df.label.values
+
+def make_patient_dataset(lab_test, diag_counts=None, pres_counts=None, lab_counts=None,types='train'):
+    skip_df = skip_case(lab_test, diag_counts, pres_counts, lab_counts,types)
+
+    min_label_size = min(skip_df[skip_df.label==0].shape[0],
+    skip_df[skip_df.label==1].shape[0],
+    skip_df[skip_df.label==2].shape[0])
+
+    label_0_df = skip_df[skip_df.label==0].sample(min_label_size)
+    label_1_df = skip_df[skip_df.label==1].sample(min_label_size)
+    label_2_df = skip_df[skip_df.label==2].sample(min_label_size)
+
+    concat_df = pd.concat([label_0_df,label_1_df,label_2_df])
+    concat_df = concat_df.sample(3*min_label_size)
+
+    pool = Pool()
+
+    result = pool.map_async(_make_patient_dataset,np.array_split(concat_df,12))
+    return np.concatenate([x for x,_ in result.get()]),np.concatenate([y for _,y in result.get()])
+
+def get_patient_dataset_size(lab_test, diag_counts=None, pres_counts=None, lab_counts=None,types='train'):
+    skip_df = skip_case(lab_test, diag_counts, pres_counts, lab_counts,types)
+    min_label_size = min(skip_df[skip_df.label==0].shape[0],
+    skip_df[skip_df.label==1].shape[0],
+    skip_df[skip_df.label==2].shape[0])
+
+    return min_label_size*3
