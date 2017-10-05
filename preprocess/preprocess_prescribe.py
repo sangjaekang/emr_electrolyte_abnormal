@@ -41,14 +41,15 @@ def get_timeserial_prescribe_df(no,feature_selected=True):
     try:
         target_df = prescribe_store.select('prep',where='no=={}'.format(no))
         if feature_selected:
-            usecol = diagnosis_store.select('metadata/boruta').code.values
+            usecol = prescribe_store.select('metadata/boruta').code.values
         else:
-            usecol = diagnosis_store.select('metadata/usecol').index
+            usecol = prescribe_store.select('metadata/usecol').index
     finally:
         prescribe_store.close()
     _y = target_df[['no','date','mapping_code']]\
            .pivot_table(index=['mapping_code'],columns=['date'])\
            .applymap(lambda x : 1.0 if not np.isnan(x) else 0.0)
+    _y.index = _y.index.astype(str)
     _y.columns= _y.columns.droplevel()
     _y = _y.reindex(index=usecol,columns=pd.date_range(MIN_DATE,MAX_DATE,freq='D'))
 
