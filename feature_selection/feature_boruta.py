@@ -114,15 +114,16 @@ def get_timeserial_lab_label(no,lab_test='L3042'):
     return label_df
 
 def get_feature_selection_prescribe(no_list,lab_test='L3042'):        
+    global DEBUG_PRINT
     result_list = []
-    for no in no_list:
+    for idx, no in enumerate(no_list):
         target_df = get_timeserial_lab_label(no,lab_test)
         if target_df.empty:
             continue
         df = pd.DataFrame()
         first = True
         for _, row in target_df.iterrows():
-            x = pres.get_timeserial_prescribe_df(no).\
+            x = pres.get_timeserial_prescribe_df(no,feature_selected=False).\
                 loc[:,row.date-np.timedelta64(89,'D'):row.date].sum(axis=1)
             if x.sum()>1:
                 x = x.set_value('result',row.label)
@@ -131,36 +132,38 @@ def get_feature_selection_prescribe(no_list,lab_test='L3042'):
                 df = df.append(x,ignore_index=True)
         if not df.empty:
             result_list.append(df)
+        if DEBUG_PRINT and idx % 1000==0:
+            print("  {} th no clear".format(idx))
     if len(result_list) > 0:
         return pd.concat(result_list)
 
-
 def get_feature_selection_diagnosis(no_list,lab_test='L3042'):        
+    global DEBUG_PRINT
     result_list = []
-    for no in no_list:
+    for idx, no in enumerate(no_list):
         target_df = get_timeserial_lab_label(no,lab_test)
         if target_df.empty:
             continue
         df = pd.DataFrame()
         first = True
         for _, row in target_df.iterrows():
-            x = diag.get_timeserial_diagnosis_df(no).\
+            x = diag.get_timeserial_diagnosis_df(no,feature_selected=False).\
                 loc[:,row.date-np.timedelta64(89,'D'):row.date].sum(axis=1)
             if x.sum()>1:
                 x = x.set_value('result',row.label)
                 if first: 
                     df = pd.DataFrame(columns=x.index);first = False
                 df = df.append(x,ignore_index=True)
-        
         if not df.empty: 
             result_list.append(df)
-     
+        if DEBUG_PRINT and idx % 1000 ==0:
+            print("  {} th no clear".format(idx))
     if len(result_list) > 0: 
         return pd.concat(result_list)
 
-
 def execute_feature_selection_diagnosis(lab_test='L3042'):
-    global FEATURE_DIAGNOSIS_PATH, LABTEST_PATH
+    global FEATURE_DIAGNOSIS_PATH, LABTEST_PATH, DEBUG_PRINT
+    if DEBUG_PRINT: print("Execute_Feature_selection_diagnosis starts")
     pool = Pool()   
     lab_store = pd.HDFStore(LABTEST_PATH,mode='r')
     try:
@@ -186,11 +189,12 @@ def execute_feature_selection_diagnosis(lab_test='L3042'):
     feat_selector.fit(x.as_matrix(),y.as_matrix())
     code = x.columns[feat_selector.support_]
     pd.DataFrame(data=code.values,columns=['code']).to_hdf(FEATURE_DIAGNOSIS_PATH,'usecol/{}'.format(lab_test),format='table',data_columns=True,mode='a')
-        pd.DataFrame(data=code.values,columns=['code']).to_hdf(DIAGNOSIS_PATH,'metadata/boruta',format='table',data_columns=True,mode='a')
-
+    pd.DataFrame(data=code.values,columns=['code']).to_hdf(DIAGNOSIS_PATH,'metadata/boruta',format='table',data_columns=True,mode='a')
+    if DEBUG_PRINT: print("Execute_Feature_selection_diagnosis ends")
 
 def execute_feature_selection_prescribe(lab_test='L3042'):
-    global FEATURE_PRESCRIBE_PATH, LABTEST_PATH
+    global FEATURE_PRESCRIBE_PATH, LABTEST_PATH, DEBUG_PRINT
+    if DEBUG_PRINT: print("Execute_Feature_selection_prescribe starts")
     pool = Pool()   
     lab_store = pd.HDFStore(LABTEST_PATH,mode='r')
     try:
@@ -200,6 +204,7 @@ def execute_feature_selection_prescribe(lab_test='L3042'):
 
     result = pool.map_async(get_feature_selection_prescribe, np.array_split(no_list, CORE_NUMS))
     result_df = pd.concat([x for x in result.get() if x is not None])
+    result_df.columns = result_df.columns.astype(str)
     result_df.to_hdf(FEATURE_PRESCRIBE_PATH,'prep/{}'.format(lab_test),format='table',data_columns=True,mode='a')
 
     rf = RandomForestClassifier(n_jobs=-1, class_weight='auto', max_depth=5)
@@ -217,3 +222,4 @@ def execute_feature_selection_prescribe(lab_test='L3042'):
     code = x.columns[feat_selector.support_]
     pd.DataFrame(data=code.values,columns=['code']).to_hdf(FEATURE_PRESCRIBE_PATH,'usecol/{}'.format(lab_test),format='table',data_columns=True,mode='a')
     pd.DataFrame(data=code.values,columns=['code']).to_hdf(PRESCRIBE_PATH,'metadata/boruta',format='table',data_columns=True,mode='a')
+    if DEBUG_PRINT: print("Execute_Feature_selection_prescribe ends")
