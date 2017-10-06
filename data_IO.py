@@ -169,23 +169,7 @@ def get_patient_ts_df(no,t_day,f_day):
     demo_df = demo.get_timeserial_demographic(no).loc[:,f_day:t_day]
     pres_df = pres.get_timeserial_prescribe_df(no).loc[:,f_day:t_day]    
     lab_df = lab.get_timeserial_lab_df(no).loc[:,f_day:t_day]
-
-    diag_df = diag.get_timeserial_diagnosis_df(no).loc[:,f_day:t_day]
-    # 기간동안 ２번이상 진단코드가 있으면，그 사이를 채움
-    code_count = diag_df.sum(1)
-    for code, _ in code_count[code_count >1].items():
-        ts_series = diag_df.loc[code,:]
-        first_code_day = ts_series[ts_series==1].index[0]
-        last_code_day = ts_series[ts_series==1].index[-1]
-        diag_df.loc[code,first_code_day:last_code_day] = 1.0
-
-    return pd.concat([demo_df,pres_df,diag_df,lab_df])
-
-def get_patient_ts_df(no,t_day,f_day):
-    demo_df = demo.get_timeserial_demographic(no).loc[:,f_day:t_day]
-    pres_df = pres.get_timeserial_prescribe_df(no).loc[:,f_day:t_day]    
-    lab_df = lab.get_timeserial_lab_df(no).loc[:,f_day:t_day]
-
+    lab_df = impute_lab_basic(lab_df)
     diag_df = diag.get_timeserial_diagnosis_df(no).loc[:,f_day:t_day]
     # 기간동안 ２번이상 진단코드가 있으면，그 사이를 채움
     code_count = diag_df.sum(1)
