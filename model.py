@@ -18,7 +18,6 @@ flags.DEFINE_integer('emr_rows',239,'Total number of emr rows')
 flags.DEFINE_integer('months',180,'lengths of input months')
 flags.DEFINE_integer('label_nums',3,'Number of label')  
 
-
 class VComb_CNN(object):
     # ref : Multi-task Prediction of disease onsets from longitudinal lab tests
     # [CNN2] model structure in the paper

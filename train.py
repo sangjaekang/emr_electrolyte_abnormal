@@ -39,7 +39,7 @@ with Model.graph.as_default():
     valid_x,valid_y = data.make_patient_dataset('L3042', diag_counts=None, pres_counts=None, lab_counts=50,types='validation')
     print("validation set size : {}".format(valid_x.shape))
     print("validation okay")
-    
+
     with tf.Session(config=config) as sess:
         sess.run(init)
         train_writer = tf.summary.FileWriter(FLAGS.summaries_dir + '/train',sess.graph)
@@ -51,7 +51,7 @@ with Model.graph.as_default():
         step=0
         print("epoch start!")
         for epoch in range(FLAGS.epochs):
-            #train_x,train_y = data.make_patient_dataset('L3042', diag_counts=None, pres_counts=None, lab_counts=50,types='train')    
+            train_x,train_y = data.make_patient_dataset('L3042', diag_counts=None, pres_counts=None, lab_counts=50,types='train')    
             print("train set size : {}".format(train_x.shape))
             print("train set okay")
             for batch_no in range(batch_nums):
