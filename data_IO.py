@@ -87,6 +87,8 @@ def skip_case(lab_test, diag_counts=None, pres_counts=None, lab_counts=None,type
     elif types=='test':
         return test_df
     elif types=='validation':
+        return validation_df
+    else :
         return result_df
 
 def get_diag_ts_df(no,date):
@@ -186,7 +188,10 @@ def make_patient_dataset(lab_test, diag_counts=None, pres_counts=None, lab_count
     pool = Pool()
 
     result = pool.map_async(_make_patient_dataset,np.array_split(concat_df,12))
-    return np.concatenate([x for x,_ in result.get()]),np.concatenate([y for _,y in result.get()])
+    dataset_x = np.concatenate([x for x,_ in result.get()])
+    dataset_y = np.concatenate([y for _,y in result.get()])
+
+    return np.stack([dataset_x],axis=3), dataset_y
 
 def get_patient_dataset_size(lab_test, diag_counts=None, pres_counts=None, lab_counts=None,types='train'):
     skip_df = skip_case(lab_test, diag_counts, pres_counts, lab_counts,types)

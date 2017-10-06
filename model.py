@@ -6,14 +6,15 @@ BASE_PATH = os_path[:find_path.search(os_path).span()[1]]
 sys.path.append(BASE_PATH)
 
 from config import *
+import tensorflow as tf
 
 flags = tf.app.flags
 FLAGS = flags.FLAGS
 flags.DEFINE_integer('demo_rows',2, 'Number of demograhic features.')
-flags.DEFINE_integer('prep_rows',149, 'Number of prescribe features.')
+flags.DEFINE_integer('prep_rows',147, 'Number of prescribe features.')
 flags.DEFINE_integer('diag_rows',49, 'Number of diagnosis features')
 flags.DEFINE_integer('lab_rows',41,'Number of labtest features')
-flags.DEFINE_integer('emr_rows',2+149+49+41,'Total number of emr rows')
+flags.DEFINE_integer('emr_rows',239,'Total number of emr rows')
 flags.DEFINE_integer('months',180,'lengths of input months')
 flags.DEFINE_integer('label_nums',3,'Number of label')  
 
@@ -43,28 +44,27 @@ class VComb_CNN(object):
                 self.temp_conv = tf.contrib.layers.conv2d(self.temp_mp,64,kernel_size=(FLAGS.lab_rows,1),
                                                           activation_fn=None,weights_initializer=self.he_init,
                                                           scope='conv')
+                self.flatten=tf.contrib.layers.flatten(self.temp_conv,scope='flatten')
                 tf.summary.histogram('conv_hist', self.temp_conv)
 
-            self.fc  = self._fc(self.temp_conv,100,'fc1')    
+            self.fc  = self._fc(self.flatten,100,'fc1')    
             self.fc2 = self._fc(self.fc,100,'fc2')
             
-            with tf.variable_scope('softmax'):
+            with tf.variable_scope('output'):
                 self.bn = tf.contrib.layers.batch_norm(self.fc2,activation_fn=tf.nn.relu,
                                                        is_training=self.is_training,scope='batch_norm')
-                self.output = tf.contrib.layers.fully_connected(self.bn,FLAGS.label_nums,activation_fn=tf.nn.softmax,
-                                                                weights_initializer=self.he_init,scope='output')
+                self.logits = tf.layers.dense(inputs=self.bn, units=3,scope='logits')
+                self.classes = tf.argmax(inputs=self.logits, axis=1,scope='classes')
+                self.prob = tf.nn.softmax(self.logits, name='softmax_tensor')
 
             with tf.variable_scope('loss'):
-                self.entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=self.label,logits=self.output)
-                self.loss = tf.reduce_mean(self.entropy,name='loss')
+                onehot_labels = tf.one_hot(indices=tf.cast(self.labels, tf.int32), depth=3)
+                self.loss = tf.losses.softmax_cross_entropy(onehot_labels=onehot_labels, logits=logits)
             tf.summary.scalar('losses', self.loss)
             
             with tf.variable_scope('accuracy'):
-                prediction = tf.argmax(self.output, 1)
-                equality = tf.equal(prediction, self.label)
-                self.accuracy = tf.reduce_mean(tf.cast(equality, tf.float32))
+                self.accuracy =  tf.metrics.accuracy(labels=self.labels, predictions=self.classes)
             tf.summary.scalar('acc',self.accuracy)
-
 
     def _vertical_conv(self,input_tensor,num_outputs,layer_name):
         with tf.variable_scope(layer_name):
