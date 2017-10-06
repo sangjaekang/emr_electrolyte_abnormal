@@ -22,7 +22,7 @@ class VComb_CNN(object):
     # ref : Multi-task Prediction of disease onsets from longitudinal lab tests
     # [CNN2] model structure in the paper
     def __init__(self):
-        tf.reset_default_graph()
+        #tf.reset_default_graph()
         self.graph = tf.Graph()
         with self.graph.as_default():
             self.he_init = tf.contrib.layers.variance_scaling_initializer()
@@ -52,17 +52,18 @@ class VComb_CNN(object):
             with tf.variable_scope('output'):
                 self.bn = tf.contrib.layers.batch_norm(self.fc2,activation_fn=tf.nn.relu,
                                                        is_training=self.is_training,scope='batch_norm')
-                self.logits = tf.layers.dense(inputs=self.bn, units=3,scope='logits')
-                self.classes = tf.argmax(inputs=self.logits, axis=1,scope='classes')
+                self.logits = tf.layers.dense(inputs=self.bn, units=3,name='logits')
+                self.classes = tf.argmax(self.logits, axis=1,name='classes')
                 self.prob = tf.nn.softmax(self.logits, name='softmax_tensor')
 
             with tf.variable_scope('loss'):
-                onehot_labels = tf.one_hot(indices=tf.cast(self.labels, tf.int32), depth=3)
-                self.loss = tf.losses.softmax_cross_entropy(onehot_labels=onehot_labels, logits=logits)
+                onehot_labels = tf.one_hot(indices=tf.cast(self.label, tf.int32), depth=3)
+                self.loss = tf.losses.softmax_cross_entropy(onehot_labels=onehot_labels, logits=self.logits)
             tf.summary.scalar('losses', self.loss)
             
             with tf.variable_scope('accuracy'):
-                self.accuracy =  tf.metrics.accuracy(labels=self.labels, predictions=self.classes)
+                correct_prediction = tf.equal(self.classes,self.label)
+                self.accuracy = tf.reduce_mean(tf.cast(correct_prediction,tf.float32))
             tf.summary.scalar('acc',self.accuracy)
 
     def _vertical_conv(self,input_tensor,num_outputs,layer_name):
