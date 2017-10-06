@@ -109,6 +109,7 @@ def preprocess_labtest():
     # count_lab_df : lab_test 별로 몇건이 있는지 저장
     count_lab_df = normalized_lab_df[['no','lab_test']].groupby('lab_test').count()
     count_lab_df.columns = ['counts']
+    count_lab_df=count_lab_df.sort_index()
     count_lab_df.to_hdf(LABTEST_PATH,'metadata/usecol',format='table',data_columns=True,mode='a')
 
     if DEBUG_PRINT: print("preprocess_labtest ends")
@@ -136,6 +137,7 @@ def set_mapping_table(lab_df):
         if DEBUG_PRINT: print("     write {} completed".format(lab_name))
 
     result_df=result_df.set_index('lab_test')
+    result_df=result_df.sort_index()
     result_df.to_hdf(LABTEST_PATH,'metadata/mapping_table',format='table',data_columns=True,mode='a')
     if DEBUG_PRINT: print("set_mapping_table ends")
     return result_df.to_dict()

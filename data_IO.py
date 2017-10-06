@@ -119,12 +119,51 @@ def get_demo_ts_df(no,date):
     demo_ts_df = demo.get_timeserial_demographic(no).loc[:,f_day:t_day]
     return demo_ts_df
 
-def get_lab_ts_df(no,date):
+def get_lab_ts_df(no,date,imputation=True):
     global GAP_PERIOD, TARGET_PERIOD
     t_day = date - np.timedelta64(GAP_PERIOD,'D')
     f_day = t_day - np.timedelta64(TARGET_PERIOD-1,'D')
     lab_ts_df = lab.get_timeserial_lab_df(no).loc[:,f_day:t_day]
-    return lab_ts_df
+    if imputation:
+        return impute_lab_basic(lab_ts_df)
+    else:
+        return lab_ts_df
+
+def impute_lab_basic(lab_df):
+    lab_array = lab_df.values
+    # lab_array는　lab_df의　numpy형　array pointer
+    # 값복사없이쓸수있음
+    for i in range(lab_array.shape[0]):
+        inds = np.argwhere(~np.isnan(lab_array[i,:]))
+        if inds.size == 0:
+            lab_array[i,:] = get_avg_labtest(i)
+        elif inds.size == 1:
+            lab_array[i,:] = lab_array[i,inds[0,0]]
+        else:
+            prev_ind = inds[:,0][0]
+            for ind in inds[:,0][1:]:
+                prev_value = lab_array[i,prev_ind]
+                curr_value = lab_array[i,ind]
+                for input_index in range(prev_ind,ind+1):
+                    lab_array[i,input_index] =\
+                    (curr_value-prev_value)/(ind-prev_ind)*(input_index-prev_ind)+prev_value 
+                prev_ind = ind
+            lab_array[i,:inds[:,0][0]]=lab_array[i,inds[:,0][0]]
+            lab_array[i,inds[:,0][-1]:]=lab_array[i,inds[:,0][-1]]
+    return lab_df
+
+@memoize
+def get_avg_labtest(idx):
+    global LABTEST_PATH
+    lab_store = pd.HDFStore(LABTEST_PATH,mode='r')
+    try:
+        mapping_table = lab_store.select('metadata/mapping_table')
+    finally:
+        lab_store.close()
+    avg_value = mapping_table.iloc[idx]['AVG']
+    min_value = mapping_table.iloc[idx]['MIN']
+    max_value = mapping_table.iloc[idx]['MAX']
+    return (avg_value-min_value)/(max_value-min_value)
 
 def get_patient_ts_df(no,t_day,f_day):
     demo_df = demo.get_timeserial_demographic(no).loc[:,f_day:t_day]
@@ -200,3 +239,4 @@ def get_patient_dataset_size(lab_test, diag_counts=None, pres_counts=None, lab_c
     skip_df[skip_df.label==2].shape[0])
 
     return min_label_size*3
+
