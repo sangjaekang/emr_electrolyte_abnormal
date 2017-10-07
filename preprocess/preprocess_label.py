@@ -144,7 +144,7 @@ def get_not_sparse_data(lab_test):
     try:
         if '/metadata/{}'.format(lab_test) in label_store.keys():
             metadata_df = label_store.select('/metadata/{}'.format(lab_test))
-            if (metadata_df.result.GAP_PERIOD == GAP_PERIOD)|\
+            if (metadata_df.result.GAP_PERIOD == GAP_PERIOD)&\
                 (metadata_df.result.TARGET_PERIOD == TARGET_PERIOD):
                 if DEBUG_PRINT:
                     print("'get_not_sparse_data' output exists! ")
@@ -227,9 +227,11 @@ def convert_na_label(x):
 
 
 def convert_ka_label(x):
-    if x < 3.5:
+    # reference : 
+    # 저칼륨혈증과 고칼륨혈증, 임인석
+    if x <= 3.0: # 저칼륨혈증
         return 1
-    elif x > 5.1:
+    elif x >= 5.5: # 고칼륨혈증
         return 2
-    else:
+    else: # 정상
         return 0
