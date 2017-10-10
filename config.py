@@ -1,8 +1,16 @@
 # -*- coding: utf-8 -*-
+
+# config파일
+# 기본적인　파일/디렉토리　경로　및
+# constant( ex: delimiter)를　정리
+
+# 그리고　전처리할때
+# 사용한　Parameter들을　저장
+
 import sys, os, re
 import pandas as pd
 import numpy as np
-#import tensorflow as tf
+
 os_path = os.path.abspath('./')
 find_path = re.compile('emr_electrolyte_abnormal')
 BASE_PATH = os_path[:find_path.search(os_path).span()[1]]

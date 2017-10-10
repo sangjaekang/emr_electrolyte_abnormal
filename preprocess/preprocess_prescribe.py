@@ -1,7 +1,10 @@
 # -*- coding: utf-8 -*-
-import sys, os, re
+import sys
+import os
+import re
 
-os_path = os.path.abspath('./') ; find_path = re.compile('emr_electrolyte_abnormal')
+os_path = os.path.abspath('./')
+find_path = re.compile('emr_electrolyte_abnormal')
 BASE_PATH = os_path[:find_path.search(os_path).span()[1]]
 sys.path.append(BASE_PATH)
 
@@ -28,79 +31,84 @@ prescribe data를 전처리하고， 환자 관련된 time-serial dataframe을 �
             metadata/usecol : 각 KCD_code 별 case 갯수
             metadata/mapping_table : 약 성분 별 mapping_code  테이블
 '''
+
+
 def get_timeserial_prescribe_df(no,feature_selected=True):
     # 환자에 대한 시계열 'prescribe' dataframe을 구하는 함수
     global DEBUG_PRINT, MIN_DATE, MAX_DATE, PRESCRIBE_PATH
     
     #전처리된 데이터가 없으면 전처리하여 생성
     if not os.path.isfile(PRESCRIBE_PATH):
-        if DEBUG_PRINT: print("no PRESCRIBE file")
+        if DEBUG_PRINT:
+            print("no PRESCRIBE file")
         preprocess_prescirbe()
 
-    prescribe_store = pd.HDFStore(PRESCRIBE_PATH,mode='r')
+    prescribe_store = pd.HDFStore(PRESCRIBE_PATH, mode='r')
     try:
-        target_df = prescribe_store.select('prep',where='no=={}'.format(no))
+        target_df = prescribe_store.select('prep', where='no=={}'.format(no))
         if feature_selected:
             usecol = prescribe_store.select('metadata/boruta').code.values
         else:
             usecol = prescribe_store.select('metadata/usecol').index
     finally:
         prescribe_store.close()
-    _y = target_df[['no','date','mapping_code']]\
-           .pivot_table(index=['mapping_code'],columns=['date'])\
+    _y = target_df[['no', 'date', 'mapping_code']]\
+           .pivot_table(index=['mapping_code'], columns=['date'])\
            .applymap(lambda x : 1.0 if not np.isnan(x) else 0.0)
     _y.index = _y.index.map(str)
-    _y.columns= _y.columns.droplevel()
-    _y = _y.reindex(index=usecol,columns=pd.date_range(MIN_DATE,MAX_DATE,freq='D'))
+    _y.columns = _y.columns.droplevel()
+    _y = _y.reindex(index=usecol, columns=pd.date_range(MIN_DATE, MAX_DATE, freq='D'))
     # 복용일수만큼 그 구간을 １로 채워줌
     for _, row in target_df[target_df.mapping_code.isin(usecol)].iterrows():
-        _y.loc[str(row.mapping_code),row.date:row.date+np.timedelta64(int(row.day),'D')] = 1.0
+        _y.loc[str(row.mapping_code), row.date:row.date+np.timedelta64(int(row.day), 'D')] = 1.0
     return _y.fillna(0.0)
-    
+
+
 def preprocess_prescirbe():
     # RAW prescribe data를 전처리하는 함수 
     global DEBUG_PRINT, RAW_PRESCRIBE_PATH, PRESCRIBE_PATH, DELIM, RAW_PRESCRIBE_COLS, MEDICINE_COUNT_STANDARD
-    if DEBUG_PRINT: print("preprocess_prescribe starts")
-    
+    if DEBUG_PRINT:
+        print("preprocess_prescribe starts")
     if not os.path.isfile(RAW_PRESCRIBE_PATH):
         raise ValueError(' there is no RAW_PRESCRIBE file (wrong path)')
 
-    medicine_df = pd.read_csv(RAW_PRESCRIBE_PATH,delimiter=DELIM,header=None, names=RAW_PRESCRIBE_COLS)
+    medicine_df = pd.read_csv(RAW_PRESCRIBE_PATH, delimiter=DELIM,header=None, names=RAW_PRESCRIBE_COLS)
     
     # 이전 전처리된 파일이 있으면 삭제
     if os.path.isfile(PRESCRIBE_PATH):
         os.remove(PRESCRIBE_PATH)
-    
     set_medicine_mapping_table()
     mapping_dict = get_prescribe_map()
-    medicine_df.loc[:,'mapping_code'] = medicine_df.medi_code.map(mapping_dict)
+    medicine_df.loc[:, 'mapping_code'] = medicine_df.medi_code.map(mapping_dict)
 
     medicine_df.dropna(inplace=True)
-    medicine_df.loc[:,'date'] = medicine_df['date'].astype(int).astype(str)
-    medicine_df.loc[:,'date'] = pd.to_datetime(medicine_df['date'],format='%Y%m%d')
+    medicine_df.loc[:, 'date'] = medicine_df['date'].astype(int).astype(str)
+    medicine_df.loc[:, 'date'] = pd.to_datetime(medicine_df['date'], format='%Y%m%d')
+    medicine_df.loc[:, "no"] = medicine_df['no'].astype(int)
+    medicine_df.loc[:, "day"] = medicine_df['day'].astype(int)
+    medicine_df.loc[:, 'mapping_code'] = medicine_df['mapping_code'].astype(int)
 
-    medicine_df.loc[:,"no"] = medicine_df['no'].astype(int)
-    medicine_df.loc[:,"day"] = medicine_df['day'].astype(int)
-    medicine_df.loc[:,'mapping_code'] = medicine_df['mapping_code'].astype(int)
-
-    medicine_df.to_hdf(PRESCRIBE_PATH,'original',format='table',data_columns=True,mode='a')
-    if DEBUG_PRINT: print("    약 처방 건수 최소 기준 : {}".format(MEDICINE_COUNT_STANDARD))
-    medicine_df.loc[:,:] = medicine_df.groupby('mapping_code').filter(lambda x: len(x) >MEDICINE_COUNT_STANDARD)
-    medicine_df[['no','mapping_code','date','day']].to_hdf(PRESCRIBE_PATH,'prep',format='table',data_columns=True,mode='a')
-    
+    medicine_df.to_hdf(PRESCRIBE_PATH, 'original', format='table', data_columns=True, mode='a')
+    if DEBUG_PRINT:
+        print("    약 처방 건수 최소 기준 : {}".format(MEDICINE_COUNT_STANDARD))
+    medicine_df.loc[:, :] = medicine_df.groupby('mapping_code').filter(lambda x: len(x) > MEDICINE_COUNT_STANDARD)
+    medicine_df[['no', 'mapping_code', 'date', 'day']].to_hdf(PRESCRIBE_PATH, 'prep', format='table', data_columns=True, mode='a')    
     # count_medicine_df : medicine mapping_code 별로 몇건이 있는지 저장
-    count_medicine_df = medicine_df[['no','mapping_code']].groupby('mapping_code').count()
+    count_medicine_df = medicine_df[['no', 'mapping_code']].groupby('mapping_code').count()
     count_medicine_df.columns = ['counts']
-    count_medicine_df.to_hdf(PRESCRIBE_PATH,'metadata/usecol',format='table',data_columns=True,mode='a')
+    count_medicine_df.to_hdf(PRESCRIBE_PATH,'metadata/usecol', format='table', data_columns=True, mode='a')
 
-    if DEBUG_PRINT: print("preprocess_prescribe ends")
+    if DEBUG_PRINT:
+        print("preprocess_prescribe ends")
+
 
 def set_medicine_mapping_table():
     global PRESCRIBE_PATH, MEDICINE_CONTEXT_PATH, MEDICINE_CONTEXT_COLS
-    if DEBUG_PRINT: print("set_medicine_mapping_table starts")
+    if DEBUG_PRINT:
+        print("set_medicine_mapping_table starts")
     medicine_context_df = pd.read_excel(MEDICINE_CONTEXT_PATH)
     medicine_context_df.columns = MEDICINE_CONTEXT_COLS
-    medicine_context_df.drop(medicine_context_df.columns[[1, 2, 3, 5, 6]], axis=1,inplace=True)
+    medicine_context_df.drop(medicine_context_df.columns[[1, 2, 3, 5, 6]], axis=1, inplace=True)
     # ['약품코드', '약품명', '시작일자', '종료일자', '성분명', 'ATC분류코드', 'ATC분류설명']
     # 1. strip() & 소문자화
     medicine_context_df.ingd = medicine_context_df.ingd.str.strip().str.lower()
@@ -119,19 +127,20 @@ def set_medicine_mapping_table():
     # 8. 전처리 정리
     medicine_context_df = remove_surplus_expr(medicine_context_df)
     # mapping series 만들기
-    code_to_name = pd.Series(medicine_context_df.ingd.values, index=medicine_context_df.medi_code)
+    code_to_name = pd.Series(medicine_context_df.ingd.values, index= medicine_context_df.medi_code)
     unique_name_set = medicine_context_df.ingd.unique()
-    name_to_int    = pd.Series(range(1,len(unique_name_set)+1), index=unique_name_set)
-    
-    mapping_df = pd.concat([code_to_name,code_to_name.map(name_to_int)],axis=1,keys=code_to_name)
+    name_to_int = pd.Series(range(1,len(unique_name_set)+1), index= unique_name_set)
+    mapping_df = pd.concat([code_to_name,code_to_name.map(name_to_int)], axis=1, keys=code_to_name)
     mapping_df.index.name = 'medi_code'
-    mapping_df.columns = ['ingd_name','mapping_code']
+    mapping_df.columns = ['ingd_name', 'mapping_code']
     mapping_df.reset_index(inplace=True)
     mapping_df.drop_duplicates(inplace=True)
-    mapping_df.to_hdf(PRESCRIBE_PATH,'metadata/mapping_table',format='table',data_columns=True,mode='a')
+    mapping_df.to_hdf(PRESCRIBE_PATH, 'metadata/mapping_table', format='table', data_columns=True, mode='a')
     print(mapping_df.head())
     del mapping_df
-    if DEBUG_PRINT: print("set_medicine_mapping_table ends")
+    if DEBUG_PRINT:
+        print("set_medicine_mapping_table ends")
+
 
 def get_prescribe_map():
     global PRESCRIBE_PATH
@@ -144,18 +153,21 @@ def get_prescribe_map():
     del prescribe_map_df
     return mapping_dict
 
+
 def strip_space(x):
     # 띄어쓰기 날려버리는 함수
-    if isinstance(x,str):
+    if isinstance(x, str):
         return x.strip()
-    else :
+    else:
         return str(x).strip()
+
 
 def apply_strip(df):
     # dataframe에 strip_space를 적용시킴
     for column in df.columns:
         df[column] = df[column].map(strip_space, na_action='ignore')
     return df
+
 
 def remove_reg(from_regs,to_regs=" ",except_case=None):
     '''
@@ -166,12 +178,13 @@ def remove_reg(from_regs,to_regs=" ",except_case=None):
         # non
         except_case = " " + str(except_case) + " "
         except_case = [except_case]
-    else :
+    else:
         _temp = []
-        for except_c in except_case :
+        for except_c in except_case:
             except_c = " " + str(except_c) + " "
             _temp.append(except_c)
         except_case = _temp
+
     def _remove_reg(x):
         x = " " + str(x) + " " # padding space 추가
         re_pattern = re.compile(from_regs)
@@ -184,6 +197,7 @@ def remove_reg(from_regs,to_regs=" ",except_case=None):
         else :
             return x.strip()
     return _remove_reg
+
 
 def unify_reg(from_regs,to_regs):
     '''

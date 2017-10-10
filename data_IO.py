@@ -15,14 +15,17 @@ import preprocess.preprocess_demographic as demo
 
 from multiprocessing import Pool
 
+
 def memoize(func):
     cache = {}
+
     def memoizer(*args, **kwargs):
         key = str(args) + str(kwargs)
         if key not in cache:
             cache[key] = func(*args, **kwargs)
         return cache[key]
     return memoizer
+
 
 @memoize
 def skip_case(lab_test, diag_counts=None, pres_counts=None, lab_counts=None,types='train'):

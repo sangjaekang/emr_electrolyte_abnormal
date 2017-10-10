@@ -53,9 +53,12 @@ def get_timeserial_diagnosis_df(no,feature_selected=True):
 
 def preprocess_diagnosis():
     # RAW diagnosis data를 전처리하는 함수 
-    global DEBUG_PRINT, RAW_DIAGNOSIS_PATH, DIAGNOSIS_PATH, DELIM, RAW_DIAGNOSIS_COLS
+    global DEBUG_PRINT, RAW_DIAGNOSIS_PATH, DIAGNOSIS_PATH, DELIM, RAW_DIAGNOSIS_COLS, KCD_MAP_TYPE, KCD_COUNT_STANDARD
     if DEBUG_PRINT: print("preprocess_diagnosis starts")
     diagnosis_df = pd.read_csv(RAW_DIAGNOSIS_PATH,delimiter=DELIM, header=None,usecols=[0,1,2,3],names=RAW_DIAGNOSIS_COLS)
+    
+    # 전처리전　저장
+    diagnosis_df.to_hdf(DIAGNOSIS_PATH,'original',format='table',data_columns=True,mode='a')
     # KCD 코드 전처리
     # KCD 코드를 분류단위（세분류，소분류，중분류，대분류）중 하나를 기준으로 통일
     diagnosis_df.loc[:,'KCD_code']=diagnosis_df.KCD_code.map(map_KCD_by_type(KCD_MAP_TYPE))
