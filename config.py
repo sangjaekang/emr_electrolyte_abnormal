@@ -105,3 +105,10 @@ DEBUG_PRINT = True
 GAP_PERIOD = 7  # TARGET_PERIOD와 PREDICITON_PERIOD 사이 gap 기간
 TARGET_PERIOD = 180  # prediction 할 때 Input 시간
 PREDICTION_PERIOD = 60  # prediction 할 때 예측범위 시간
+
+# RNN 모델로　데이터　예측시　시간간격
+SKIP_DATE = 4 #  RNN　input 데이터　연속성을　보장하는　데이터　간　최대　거리
+MIN_PREDICTION_PERIOD = 7  # RNN input 데이터의　최소　길이
+SEQ_LENGTH = 14  # RNN data 학습　단위
+NUMS_LABTEST =  20  # RNN data 에서　사용될　labtest 갯수
+WEIGHT_DICT = {-1: 0.1,0: 0.5, 1: 1, 2: 1, 3: 1, 4: 1}  # 라벨별　가중치

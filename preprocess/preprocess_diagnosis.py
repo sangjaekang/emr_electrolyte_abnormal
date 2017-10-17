@@ -52,10 +52,10 @@ def get_timeserial_diagnosis_df(no, feature_selected=True):
         diagnosis_store.close()
     _y = target_df[['no', 'date', 'KCD_code']]\
         .pivot_table(index=['KCD_code'], columns=['date'])\
-        .applymap(lambda x: 1.0 if not np.isnan(x) else 0.0)
+        .applymap(lambda x: 1.0 if not np.isnan(x) else np.nan)
 
     _y.columns = _y.columns.droplevel()
-    return _y.reindex(index=usecol, columns=pd.date_range(MIN_DATE, MAX_DATE, freq='D')).fillna(0.0)
+    return _y.reindex(index=usecol, columns=pd.date_range(MIN_DATE, MAX_DATE, freq='D')).fillna(axis=1,method='ffill').fillna(0)
 
 
 def preprocess_diagnosis():
