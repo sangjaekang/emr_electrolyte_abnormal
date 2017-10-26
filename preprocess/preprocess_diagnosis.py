@@ -32,7 +32,7 @@ diagnosis data를 전처리하고， 환자 관련된 time-serial dataframe을 �
 
 
 def get_timeserial_diagnosis_df(no, feature_selected=True):
-    # 환자에 대한 시계열 'lab_test' dataframe을 구하는 함수
+    # 환자에 대한 시계열  진단 dataframe을 구하는 함수
     global DEBUG_PRINT, MIN_DATE, MAX_DATE, DIAGNOSIS_PATH
 
     # 전처리된 데이터가 없으면 전처리하여 생성
@@ -50,7 +50,7 @@ def get_timeserial_diagnosis_df(no, feature_selected=True):
             usecol = diagnosis_store.select('metadata/usecol').index
     finally:
         diagnosis_store.close()
-    _y = target_df[['no', 'date', 'KCD_code']]\
+    _y = target_df[['no'ls , 'date', 'KCD_code']]\
         .pivot_table(index=['KCD_code'], columns=['date'])\
         .applymap(lambda x: 1.0 if not np.isnan(x) else np.nan)
 

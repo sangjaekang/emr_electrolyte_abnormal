@@ -35,6 +35,19 @@ LABTEST DATA I/O관련 모듈
 '''
 
 
+def get_lab_ts_df_with_missing(no, start_date, end_date):
+    '''
+    return lab_test timeserial dataframe per patient
+    arguments
+        start_date ~ end_date : the time-serial length in dataframe
+    '''
+    lab_ts_df = get_timeserial_lab_df(no).loc[:, start_date:end_date].reindex(
+        columns=pd.date_range(start_date, end_date, freq='D'))
+    missing_df = lab_ts_df.isnull().astype(float)
+    lab_ts_df = lab_ts_df.fillna(0)
+    return pd.concat([lab_ts_df, missing_df])
+
+
 def get_timeserial_lab_df(no):
     # 환자에 대한 시계열 'lab_test' dataframe을 구하는 함수
     global DEBUG_PRINT, MIN_DATE, MAX_DATE, LABTEST_PATH

@@ -80,8 +80,8 @@ EMGCY_AND_NOT_DICT = {
 # 데이터 전처리 내 에서의 configuration
 CORE_NUMS = 12  # cpu core 수
 
-SKIP_TEST_INTERVAL = 7  # LAB 데이터 내 검사 일자 간 최소간격
-SKIP_LABEL_INTERVAL = 30  # 전해질 이상 발병후 최소간격 (이거보다 길어야지 독립적인 발병)
+#SKIP_TEST_INTERVAL = 7  # LAB 데이터 내 검사 일자 간 최소간격
+#SKIP_LABEL_INTERVAL = 30  # 전해질 이상 발병후 최소간격 (이거보다 길어야지 독립적인 발병)
 
 # Input data의 최소 데이터 갯수
 # 이것보다 적으면 too much sparse로 어려움
@@ -109,6 +109,6 @@ PREDICTION_PERIOD = 60  # prediction 할 때 예측범위 시간
 # RNN 모델로　데이터　예측시　시간간격
 SKIP_DATE = 4 #  RNN　input 데이터　연속성을　보장하는　데이터　간　최대　거리
 MIN_PREDICTION_PERIOD = 7  # RNN input 데이터의　최소　길이
-SEQ_LENGTH = 14  # RNN data 학습　단위
+SEQ_LENGTH = 30  # RNN data 학습　단위
 NUMS_LABTEST =  20  # RNN data 에서　사용될　labtest 갯수
 WEIGHT_DICT = {-1: 0.1,0: 0.5, 1: 1, 2: 1, 3: 1, 4: 1}  # 라벨별　가중치
