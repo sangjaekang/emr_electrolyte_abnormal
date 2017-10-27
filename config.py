@@ -78,7 +78,7 @@ EMGCY_AND_NOT_DICT = {
 }
 
 # 데이터 전처리 내 에서의 configuration
-CORE_NUMS = 12  # cpu core 수
+CORE_NUMS = 8  # cpu core 수
 
 #SKIP_TEST_INTERVAL = 7  # LAB 데이터 내 검사 일자 간 최소간격
 #SKIP_LABEL_INTERVAL = 30  # 전해질 이상 발병후 최소간격 (이거보다 길어야지 독립적인 발병)

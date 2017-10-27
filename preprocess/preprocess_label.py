@@ -85,72 +85,14 @@ def preprocess_label(lab_test):
     concat_df.no = concat_df.no.astype(int)
     concat_df.label = concat_df.label.astype(int)
 
-    concat_df[['no', 'date', 'label']].to_hdf(
+    original_df.loc[:, 'label'] = original_df.result.map(convert_label)
+    original_df[['no', 'date', 'label']].to_hdf(
         LABEL_PATH, 'label/{}'.format(lab_test), format='table', data_columns=True, mode='a')
+
     if DEBUG_PRINT:
         print("preprocess_label ends")
+
     split_train_validation_test(lab_test)
-
-
-def _preprocess_label(no_list, lab_test='L3042'):
-    global SKIP_LABEL_INTERVAL, LABTEST_PATH, LABEL_PATH, DEBUG_PRINT
-    if DEBUG_PRINT:
-        print("  _preprocess_label starts")
-    lab_store = pd.HDFStore(LABTEST_PATH, mode='r')
-    try:
-        original_df = lab_store.select(
-            'original', where='lab_test=="{}"'.format(lab_test))
-    finally:
-        lab_store.close()
-
-    if lab_test == 'L3041':
-        convert_label = convert_na_label
-    elif lab_test == 'L3042':
-        convert_label = convert_ka_label
-    else:
-        raise ValueError(
-            "Wrong lab_test num. there is no convert_label method")
-
-    original_df.loc[:, 'label'] = original_df.result.map(convert_label)
-
-    label_list = []
-    for no in no_list:
-        target_df = original_df[original_df.no == no]
-        label_df = pd.DataFrame(
-            columns=['no', 'lab_test', 'date', 'result', 'label'])
-        for i, row in target_df.iterrows():
-            if row.label == 0:
-                # 정상인경우， 앞뒤 skip_label_interval 기간동안 전해질 이상이 없으면 인정 아니면 SKIP
-                temp_df = target_df[(target_df.date >= row.date-np.timedelta64(SKIP_LABEL_INTERVAL, "D"))
-                                    & (target_df.date < row.date+np.timedelta64(SKIP_LABEL_INTERVAL, "D"))
-                                    & (target_df.label != 0)]
-                if temp_df.empty:
-                    label_df = label_df.append(row, ignore_index=True)
-            elif row.label == 1:
-                # 전해질이상인경우， 앞 skip_label_interval 기간동안 다른 전해질 이상이 없으면 인정 아니면
-                # SKIP
-                temp_df = target_df[(target_df.date >= row.date-np.timedelta64(SKIP_LABEL_INTERVAL, "D"))
-                                    & (target_df.date < row.date)
-                                    & (target_df.label == 2)]
-                if temp_df.empty:
-                    label_df = label_df.append(row, ignore_index=True)
-            else:
-                # 전해질이상인경우， 앞 skip_label_interval 기간동안 다른 전해질 이상이 없으면 인정 아니면
-                # SKIP
-                temp_df = target_df[(target_df.date >= row.date-np.timedelta64(SKIP_LABEL_INTERVAL, "D"))
-                                    & (target_df.date < row.date)
-                                    & ((target_df.label == 1) & (target_df.label == 3))]
-                if temp_df.empty:
-                    label_df = label_df.append(row, ignore_index=True)
-        label_list.append(label_df)
-
-    concat_df = pd.concat(label_list)
-    concat_df.no = concat_df.no.astype(int)
-    concat_df.label = concat_df.label.astype(int)
-
-    if DEBUG_PRINT:
-        print("  _preprocess_label ends")
-    return concat_df
 
 
 def split_train_validation_test(lab_test):
@@ -173,11 +115,11 @@ def split_train_validation_test(lab_test):
     validation_no.sort()
 
     pd.DataFrame(data=train_no, columns=['no']).to_hdf(
-        LABEL_PATH, 'split/train', format='table', data_columns=True, mode='a')
+        LABEL_PATH, 'split/{}/train'.format(lab_test), format='table', data_columns=True, mode='a')
     pd.DataFrame(data=test_no, columns=['no']).to_hdf(
-        LABEL_PATH, 'split/test', format='table', data_columns=True, mode='a')
+        LABEL_PATH, 'split/{}/test'.format(lab_test), format='table', data_columns=True, mode='a')
     pd.DataFrame(data=validation_no, columns=['no']).to_hdf(
-        LABEL_PATH, 'split/validation', format='table', data_columns=True, mode='a')
+        LABEL_PATH, 'split/{}/validation'.format(lab_test), format='table', data_columns=True, mode='a')
     if DEBUG_PRINT:
         print("split_train_validation_test ends")
 
@@ -378,7 +320,7 @@ def preprocess_label_for_RNN(lab_test):
     '''
     RNN의　input 값으로　쓰기　위해서는，　input값이　연속적으로　배치되어　있어야함．
     환자의　시간대　중　연속적으로　배치된　부분만　라벨링　하는　메소드
-    
+
     RNN의　input값으로　시계열로　연속적으로　배치되어　있는　라벨들을　찾아서　저장
     특정　환자가　start_date부터　prev_date까지　연속적으로　배치된　경우，　그것을　result_df에　담아서
     label_store의　'RNN/label/L3042'　에　넣는다．
@@ -386,53 +328,62 @@ def preprocess_label_for_RNN(lab_test):
     SKIP_DATE : 최소　prev_date부터　row_date까지의　간격，　이것보다　멀어진　경우　불연속으로　판단
     '''
     global DEBUG_PRINT, SKIP_DATE, MIN_PREDICTION_PERIOD, LABEL_PATH
-    
+
     if DEBUG_PRINT:
         print("preprocess_label_for_RNN starts")
 
     label_store = pd.HDFStore(LABEL_PATH, mode='r')
     try:
         label_df = label_store.select('label/{}'.format(lab_test))
-        label_df = label_df.sort_values(['no','date'])
+        label_df = label_df.sort_values(['no', 'date'])
     finally:
         label_store.close()
 
-    def _insert_row(no, s_date, e_date,result_df):
+    def _insert_row(no, s_date, e_date, result_df):
         # result_df에다가　RNN input으로　쓸　수　있는　환자의　시간대를　담음
-        target_df = label_df[(label_df.no == start_no)&(label_df.date <= prev_date)&(label_df.date >= start_date)]
+        target_df = label_df[(label_df.no == start_no) & (
+            label_df.date <= prev_date) & (label_df.date >= start_date)]
         normal_count, hhypo_count, hhyper_count, lhypo_count, lhyper_count =\
-                                                        target_df.label.value_counts().reindex(index=range(5)).fillna(0)
-        result_df = result_df.append({'no':no,'start_date':s_date,'end_date':e_date,
-                                      'normal_count':normal_count, 'hhypo_count':hhypo_count,'hhyper_count':hhyper_count,
-                                      'lhypo_count':lhypo_count, 'lhyper_count':lhyper_count},ignore_index=True)
+            target_df.label.value_counts().reindex(index=range(5)).fillna(0)
+        result_df = result_df.append({'no': no, 'start_date': s_date, 'end_date': e_date,
+                                      'normal_count': normal_count, 'hhypo_count': hhypo_count, 'hhyper_count': hhyper_count,
+                                      'lhypo_count': lhypo_count, 'lhyper_count': lhyper_count}, ignore_index=True)
         return result_df
-        
+
     # result_df에　정렬된　정보　담음
-    result_df = pd.DataFrame(columns=['no','start_date', 'end_date', 'normal_count', 'hhypo_count', 'hhyper_count', 'lhypo_count', 'lhyper_count'])
-    start_no, start_date = prev_no, prev_date = label_df.iloc[0].no, label_df.iloc[0].date
+    result_df = pd.DataFrame(columns=['no', 'start_date', 'end_date', 'normal_count',
+                                      'hhypo_count', 'hhyper_count', 'lhypo_count', 'lhyper_count'])
+    start_no, start_date = prev_no, prev_date = label_df.iloc[
+        0].no, label_df.iloc[0].date
     for _, row in label_df.iterrows():
         # label은　NO - DATE순으로 정렬되어있음
         if prev_no == row.no:
-            if prev_date + np.timedelta64(SKIP_DATE,'D') < row.date:
+            if prev_date + np.timedelta64(SKIP_DATE, 'D') < row.date:
                 # SKIP_DATE보다　ROW.date가　먼　경우　불연속
-                if prev_date >= start_date + np.timedelta64(MIN_PREDICTION_PERIOD,'D'):
-                    # START_DATE보다　PREV_DATE와의　시간　차이가　MIN_PREDICTION_PERIOD 만큼　나면　인정
-                    result_df = _insert_row(start_no,start_date,prev_date,result_df)
+                if prev_date >= start_date + np.timedelta64(MIN_PREDICTION_PERIOD, 'D'):
+                    # START_DATE보다　PREV_DATE와의　시간　차이가　MIN_PREDICTION_PERIOD 만큼
+                    # 나면　인정
+                    result_df = _insert_row(
+                        start_no, start_date, prev_date, result_df)
                 start_date = row.date
             prev_date = row.date
         else:
-            if prev_date >= start_date + np.timedelta64(MIN_PREDICTION_PERIOD,'D'):
-                # START_DATE보다　PREV_DATE와의　시간　차이가　MIN_PREDICTION_PERIOD 만큼　나면　인정
-                result_df = _insert_row(start_no,start_date,prev_date,result_df)            
+            if prev_date >= start_date + np.timedelta64(MIN_PREDICTION_PERIOD, 'D'):
+                # START_DATE보다　PREV_DATE와의　시간　차이가　MIN_PREDICTION_PERIOD 만큼　나면
+                # 인정
+                result_df = _insert_row(
+                    start_no, start_date, prev_date, result_df)
             prev_no = row.no
             start_no = row.no
             prev_date = row.date
             start_date = row.date
-    
-    result_df[['no','normal_count','hhypo_count','hhyper_count','lhypo_count','lhyper_count']] =\
-        result_df[['no','normal_count','hhypo_count','hhyper_count','lhypo_count','lhyper_count']].astype(int)
+
+    result_df[['no', 'normal_count', 'hhypo_count', 'hhyper_count', 'lhypo_count', 'lhyper_count']] =\
+        result_df[['no', 'normal_count', 'hhypo_count',
+                   'hhyper_count', 'lhypo_count', 'lhyper_count']].astype(int)
 
     if DEBUG_PRINT:
         print("preprocess_label_for_RNN ends")
-        
-    result_df.to_hdf(LABEL_PATH,'RNN/label/{}'.format(lab_test),format='table', data_columns=True, mode='a')    
+
+    result_df.to_hdf(LABEL_PATH, 'RNN/label/{}'.format(lab_test),
+                     format='table', data_columns=True, mode='a')
