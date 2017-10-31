@@ -75,15 +75,14 @@ def preprocess_label(lab_test):
             'original', where='lab_test=="{}"'.format(lab_test))
     finally:
         lab_store.close()
-
-    no_list = original_df.no.unique()
-    pool = Pool()
-    result = pool.map_async(
-        _preprocess_label, np.array_split(no_list, CORE_NUMS))
-    concat_df = pd.concat([x for x in result.get() if x is not None])
-
-    concat_df.no = concat_df.no.astype(int)
-    concat_df.label = concat_df.label.astype(int)
+    
+    if lab_test == 'L3041':
+        convert_label = convert_na_label
+    elif lab_test == 'L3042':
+        convert_label = convert_ka_label
+    else:
+        raise ValueError(
+            "Wrong lab_test num. there is no convert_label method")    
 
     original_df.loc[:, 'label'] = original_df.result.map(convert_label)
     original_df[['no', 'date', 'label']].to_hdf(
