@@ -287,13 +287,13 @@ def get_df_between_date_lab(df, t_day, f_day):
 
 
 def convert_na_label(x):
-    if x < 135:
+    if x <= 135:
+        # 중증저나트륨혈증
         return 1
-    elif x > 145:
+    elif x >= 145:
         return 2
     else:
         return 0
-
 
 def convert_ka_label(x):
     # reference :
@@ -313,7 +313,6 @@ def convert_ka_label(x):
     else:
         # 정상(3.5 ~ 5.0)
         return 0
-
 
 def preprocess_label_for_RNN(lab_test):
     '''

@@ -41,7 +41,7 @@ def get_timeserial_prescribe_df(no, feature_selected=True):
     if not os.path.isfile(PRESCRIBE_PATH):
         if DEBUG_PRINT:
             print("no PRESCRIBE file")
-        preprocess_prescirbe()
+        preprocess_prescribe()
 
     prescribe_store = pd.HDFStore(PRESCRIBE_PATH, mode='r')
     try:
@@ -66,7 +66,7 @@ def get_timeserial_prescribe_df(no, feature_selected=True):
     return _y.fillna(0.0)
 
 
-def preprocess_prescirbe():
+def preprocess_prescribe():
     # RAW prescribe data를 전처리하는 함수
     global DEBUG_PRINT, RAW_PRESCRIBE_PATH, PRESCRIBE_PATH, DELIM, RAW_PRESCRIBE_COLS, MEDICINE_COUNT_STANDARD
     if DEBUG_PRINT:

@@ -50,7 +50,7 @@ def get_timeserial_diagnosis_df(no, feature_selected=True):
             usecol = diagnosis_store.select('metadata/usecol').index
     finally:
         diagnosis_store.close()
-    _y = target_df[['no', 'date', 'KCD_code']]\
+    _y = target_df[['no' , 'date', 'KCD_code']]\
         .pivot_table(index=['KCD_code'], columns=['date'])\
         .applymap(lambda x: 1.0 if not np.isnan(x) else np.nan)
 

@@ -20,25 +20,29 @@ sys.path.append(BASE_PATH)
 
 # DATA PATH
 # RAW data의 경로
-RAW_DATA_DIR = BASE_PATH + "/data/rawdata/potassium_data/"
-RAW_LABTEST_PATH = RAW_DATA_DIR+"labtest.dat"
-RAW_DIAGNOSIS_PATH = RAW_DATA_DIR+"diagnosis.dat"
-RAW_PRESCRIBE_PATH = RAW_DATA_DIR+'prescribe.dat'
-RAW_DEMO_PATH = RAW_DATA_DIR + 'medi_info.xlsx'
+RAW_DATA_DIR = os.path.join(BASE_PATH , "/data/rawdata/potassium_data/")
+TFRECORD_DIR = os.path.join(BASE_PATH,'data/tfrecords')
 
-KCD_PATH = RAW_DATA_DIR + 'KCD.xlsx'
-MEDICINE_CONTEXT_PATH = RAW_DATA_DIR + 'medicine_context.xlsx'
+RAW_LABTEST_PATH = os.path.join(RAW_DATA_DIR,"labtest.dat")
+RAW_DIAGNOSIS_PATH = os.path.join(RAW_DATA_DIR,"diagnosis.dat")
+RAW_PRESCRIBE_PATH = os.path.join(RAW_DATA_DIR,'prescribe.dat')
+RAW_DEMO_PATH = os.path.join(RAW_DATA_DIR , 'medi_info.xlsx')
+
+KCD_PATH = os.path.join(RAW_DATA_DIR , 'KCD.xlsx')
+MEDICINE_CONTEXT_PATH = os.path.join(RAW_DATA_DIR , 'medicine_context.xlsx')
 
 # 전처리된 data의 경로
-PREP_DIR = BASE_PATH + '/data/prep/'
-LABTEST_PATH = PREP_DIR + 'labtest.h5'
-DIAGNOSIS_PATH = PREP_DIR + 'diagnosis.h5'
-PRESCRIBE_PATH = PREP_DIR + 'prescribe.h5'
-LABEL_PATH = PREP_DIR + 'label.h5'
-DEMO_PATH = PREP_DIR + 'demo.h5'
+PREP_DIR = os.path.join(BASE_PATH , '/data/prep/')
+LABTEST_PATH = os.path.join(PREP_DIR , 'labtest.h5')
+DIAGNOSIS_PATH = os.path.join(PREP_DIR , 'diagnosis.h5')
+PRESCRIBE_PATH = os.path.join(PREP_DIR , 'prescribe.h5')
+LABEL_PATH = os.path.join(PREP_DIR , 'label.h5')
+DEMO_PATH = os.path.join(PREP_DIR , 'demo.h5')
 
-FEATURE_DIAGNOSIS_PATH = PREP_DIR + 'feature_selection_diagnosis.h5'
-FEATURE_PRESCRIBE_PATH = PREP_DIR + 'feature_selection_prescribe.h5'
+FEATURE_DIAGNOSIS_PATH = os.path.join(PREP_DIR, 'feature_selection_diagnosis.h5')
+FEATURE_PRESCRIBE_PATH = os.path.join(PREP_DIR, 'feature_selection_prescribe.h5')
+
+H5_DATASET_PATH = os.path.join(PREP_DIR,"h5_dataset.h5")
 
 # RAW DATA 특성
 DELIM = '\x0b'  # 구분자
