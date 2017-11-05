@@ -1,9 +1,7 @@
 # -*- coding: utf-8 -*-
-%matplotlib inline
 import sys
 import os
 import re
-import matplotlib.pyplot as plt
 
 os_path = os.path.abspath('./')
 find_path = re.compile('emr_electrolyte_abnormal')
@@ -33,7 +31,6 @@ import pickle
 import h5py
 import numpy as np
 
-
 # 사용할　lab test의　종류
 lab_store = pd.HDFStore(LABTEST_PATH, mode='r')
 try:
@@ -42,7 +39,6 @@ finally:
     lab_store.close()
 top_use_col = usecol.sort_values('counts', ascending=False)[
     :NUMS_LABTEST].index
-
 
 label_store = pd.HDFStore(LABEL_PATH, mode='r')
 try:
