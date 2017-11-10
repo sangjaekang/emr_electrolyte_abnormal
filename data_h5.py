@@ -75,8 +75,7 @@ def get_lab_ts_df_with_missing(no, start_date, end_date, use_col):
         use_col : the index name being used in dataframe
         start_date ~ end_date : the time-serial length in dataframe
     '''
-    lab_ts_df = lab.get_timeserial_lab_df(no).\
-        loc[:, start_date:end_date].\
+    lab_ts_df = lab.get_timeserial_lab_df(no).loc[:, start_date:end_date].\
         reindex(index=use_col, columns=pd.date_range(
             start_date, end_date, freq='D'))
     missing_df = lab_ts_df.isnull().astype(float)
@@ -122,63 +121,88 @@ def determine_value(label_np):
         return label_np[0]
 
 
+def _apply_weight_dict(array):
+    result = array.copy()
+    for key, value in WEIGHT_DICT.items():
+        result[array == key] = value
+    result[np.isnan(array)] = 0
+    return result
+
+
+def _get_existence_array(array):
+    result = array.copy()
+    return (~np.isnan(result)).astype(np.int64)
+
+
 def get_input_lab_per_(row, roll_back_nums):
-    global SEQ_LENGTH, WEIGHT_DICT, top_use_col
+    global SEQ_LENGTH, WEIGHT_DICT, top_use_col, MIN_DATE
     seq_length = (row.end_date - row.start_date).days
+
+    disease_history_date = row.start_date-np.timedelta64(180, 'D')
+    if disease_history_date <= np.datetime64(MIN_DATE[:4]+"-"+MIN_DATE[4:6]+"-"+MIN_DATE[6:]):
+        disease_history_date = np.datetime64(
+            MIN_DATE[:4]+"-"+MIN_DATE[4:6]+"-"+MIN_DATE[6:])
+
     if seq_length >= SEQ_LENGTH:
         seq_length = SEQ_LENGTH
     r_end_date = row.start_date+np.timedelta64(SEQ_LENGTH, 'D')
 
     ka_label_np = get_label_ts_df(
         ka_label_df, row.no, row.start_date, row.end_date)
-    ka_label_np = roll_back_label(ka_label_np, roll_back_nums)
     na_label_np = get_label_ts_df(
         na_label_df, row.no, row.start_date, row.end_date)
+
+    #ka_exist_np = _apply_weight_dict(ka_label_np)
+    #na_exist_np = _apply_weight_dict(na_label_np)
+
+    ka_exist_np = _get_existence_array(ka_label_np)
+    na_exist_np = _get_existence_array(na_label_np)
+
+    ka_label_np = roll_back_label(ka_label_np, roll_back_nums)
     na_label_np = roll_back_label(na_label_np, roll_back_nums)
 
-    #weight = per_label_df.iloc[0].fillna(-1).map(WEIGHT_DICT).values
     lab_np = get_lab_ts_df_with_missing(
         row.no, row.start_date, r_end_date, top_use_col).values
     demo_np = demo.get_timeserial_demographic(row.no).reindex(
         columns=pd.date_range(row.start_date, r_end_date, freq='D')).values
-    diag_np = diag.get_timeserial_diagnosis_df(row.no).reindex(
-        columns=pd.date_range(row.start_date, r_end_date, freq='D')).values
+
+    diag_np = diag.get_timeserial_diagnosis_df(row.no, fill_na=False).\
+        reindex(columns=pd.date_range(disease_history_date, r_end_date, freq='D')).fillna(axis=1, method='ffill').fillna(0).\
+        reindex(columns=pd.date_range(
+            row.start_date, r_end_date, freq='D')).values
+
     pres_np = pres.get_timeserial_prescribe_df(row.no).reindex(
         columns=pd.date_range(row.start_date, r_end_date, freq='D')).values
 
-    return na_label_np, ka_label_np, seq_length, lab_np.T, demo_np.T, diag_np.T, pres_np.T  # , weight
+    return na_label_np, ka_label_np, seq_length, lab_np.T, demo_np.T, diag_np.T, pres_np.T, na_exist_np, ka_exist_np
 
 
-def get_rnn_input_dataset(df, roll_back_nums, prediction_date):
+def get_rnn_input_dataset(df, roll_back_nums):
     global CORE_NUMS
     global result
     pool = Pool()
     result = pool.map_async(
         partial(_get_rnn_input_dataset, roll_back_nums), np.array_split(df, CORE_NUMS))
-    concat_na_label = np.concatenate(
-        [na_label_np for na_label_np, ka_label_np, seq_length, lab_np, demo_np, diag_np, pres_np in result.get()])
-    concat_ka_label = np.concatenate(
-        [ka_label_np for na_label_np, ka_label_np, seq_length, lab_np, demo_np, diag_np, pres_np in result.get()])
-    concat_length = np.concatenate([seq_length for na_label_np, ka_label_np,
-                                    seq_length, lab_np, demo_np, diag_np, pres_np in result.get()])
-    concat_lab = np.concatenate([lab_np for na_label_np, ka_label_np,
-                                 seq_length, lab_np, demo_np, diag_np, pres_np in result.get()])
-    concat_demo = np.concatenate([demo_np for na_label_np, ka_label_np,
-                                  seq_length, lab_np, demo_np, diag_np, pres_np in result.get()])
-    concat_diag = np.concatenate([diag_np for na_label_np, ka_label_np,
-                                  seq_length, lab_np, demo_np, diag_np, pres_np in result.get()])
-    concat_pres = np.concatenate([pres_np for na_label_np, ka_label_np,
-                                  seq_length, lab_np, demo_np, diag_np, pres_np in result.get()])
+    concat_na_label = np.concatenate([na_label_np for na_label_np, ka_label_np, seq_length,
+                                      lab_np, demo_np, diag_np, pres_np, na_exist_np, ka_exist_np in result.get()])
+    concat_ka_label = np.concatenate([ka_label_np for na_label_np, ka_label_np, seq_length,
+                                      lab_np, demo_np, diag_np, pres_np, na_exist_np, ka_exist_np in result.get()])
+    concat_length = np.concatenate([seq_length for na_label_np, ka_label_np, seq_length,
+                                    lab_np, demo_np, diag_np, pres_np, na_exist_np, ka_exist_np in result.get()])
+    concat_lab = np.concatenate([lab_np for na_label_np, ka_label_np, seq_length,
+                                 lab_np, demo_np, diag_np, pres_np, na_exist_np, ka_exist_np in result.get()])
+    concat_demo = np.concatenate([demo_np for na_label_np, ka_label_np, seq_length,
+                                  lab_np, demo_np, diag_np, pres_np, na_exist_np, ka_exist_np in result.get()])
+    concat_diag = np.concatenate([diag_np for na_label_np, ka_label_np, seq_length,
+                                  lab_np, demo_np, diag_np, pres_np, na_exist_np, ka_exist_np in result.get()])
+    concat_pres = np.concatenate([pres_np for na_label_np, ka_label_np, seq_length,
+                                  lab_np, demo_np, diag_np, pres_np, na_exist_np, ka_exist_np in result.get()])
+    concat_na_exist = np.concatenate([na_exist_np for na_label_np, ka_label_np, seq_length,
+                                      lab_np, demo_np, diag_np, pres_np, na_exist_np, ka_exist_np in result.get()])
+    concat_ka_exist = np.concatenate([ka_exist_np for na_label_np, ka_label_np, seq_length,
+                                      lab_np, demo_np, diag_np, pres_np, na_exist_np, ka_exist_np in result.get()])
 
-    concat_na_label = concat_na_label[:, prediction_date:]
-    concat_ka_label = concat_ka_label[:, prediction_date:]
-    concat_length = concat_length - prediction_date
-    concat_lab = concat_lab[:, :-prediction_date, :]
-    concat_demo = concat_demo[:, :-prediction_date, :]
-    concat_diag = concat_diag[:, :-prediction_date, :]
-    concat_pres = concat_pres[:, :-prediction_date, :]
-
-    return concat_na_label, concat_ka_label, concat_length, concat_lab, concat_demo, concat_diag, concat_pres
+    return concat_na_label, concat_ka_label, concat_length, concat_lab, concat_demo, concat_diag, concat_pres, concat_na_exist, concat_ka_exist
 
 
 def _get_rnn_input_dataset(roll_back_nums, df):
@@ -190,10 +214,12 @@ def _get_rnn_input_dataset(roll_back_nums, df):
     demo_list = []
     diag_list = []
     pres_list = []
+    ka_exist_list = []
+    na_exist_list = []
 
     for _, row in df.iterrows():
         if (row.end_date - row.start_date) <= np.timedelta64(SEQ_LENGTH, 'D'):
-            _na_label, _ka_label, _len, _lab, _demo, _diag, _pres = get_input_lab_per_(
+            _na_label, _ka_label, _len, _lab, _demo, _diag, _pres, na_exist, ka_exist = get_input_lab_per_(
                 row, roll_back_nums)
 
             na_label_list.append(_na_label)
@@ -203,6 +229,8 @@ def _get_rnn_input_dataset(roll_back_nums, df):
             demo_list.append(_demo)
             diag_list.append(_diag)
             pres_list.append(_pres)
+            na_exist_list.append(na_exist)
+            ka_exist_list.append(ka_exist)
         else:
             temp_df = ka_label_df[(ka_label_df.no == row.no) & (
                 ka_label_df.date >= row.start_date) & (ka_label_df.date <= row.end_date)]
@@ -215,7 +243,7 @@ def _get_rnn_input_dataset(roll_back_nums, df):
                 else:
                     temp_row['start_date'] = inner_row.date
                     temp_row['end_date'] = x.iloc[0].date
-                    _na_label, _ka_label, _len, _lab, _demo, _diag, _pres = get_input_lab_per_(
+                    _na_label, _ka_label, _len, _lab, _demo, _diag, _pres, na_exist, ka_exist = get_input_lab_per_(
                         temp_row, roll_back_nums)
                     na_label_list.append(_na_label)
                     ka_label_list.append(_ka_label)
@@ -224,67 +252,60 @@ def _get_rnn_input_dataset(roll_back_nums, df):
                     demo_list.append(_demo)
                     diag_list.append(_diag)
                     pres_list.append(_pres)
+                    na_exist_list.append(na_exist)
+                    ka_exist_list.append(ka_exist)
 
-    return np.stack(na_label_list), np.stack(ka_label_list), np.stack(len_list), np.stack(lab_list),\
-        np.stack(demo_list), np.stack(diag_list), np.stack(pres_list)
+    return np.stack(na_label_list), np.stack(ka_label_list), np.stack(len_list),\
+        np.stack(lab_list), np.stack(demo_list), np.stack(diag_list),\
+        np.stack(pres_list), np.stack(na_exist_list), np.stack(ka_exist_list)
 
 
-def get_dataset(df, roll_back_nums, prediction_date, array_name):
-    dataset_name = "dataset_{}_{}".format(roll_back_nums, prediction_date)
+def get_dataset(df, roll_back_nums, array_name, data_name='dataset'):
+    dataset_name = "{}_{}".format(data_name, roll_back_nums)
     node_name = dataset_name + "/" + array_name
     h5f = h5py.File(H5_DATASET_PATH, 'r')
-    if "dataset_{}_{}/{}".format(roll_back_nums, prediction_date, array_name)in h5f:
+    if "{}_{}/{}".format(data_name, roll_back_nums, array_name) in h5f:
+        h5f.close()
         print("{} exists.")
         dataset = read_in_h5f(dataset_name, array_name)
     else:
         print("{} doesn't exist. start to construct".format(node_name))
-        start_time = time.time()
-        concat_na_label, concat_ka_label, concat_length, concat_lab, concat_demo, concat_diag, concat_pres =\
-            get_rnn_input_dataset(df, roll_back_nums, prediction_date)
-        print("time consumed --{}".format(time.time()-start_time))
-        dataset = list(zip(concat_na_label, concat_ka_label, concat_length,
-                           concat_lab, concat_demo, concat_diag, concat_pres))
         h5f.close()
+        start_time = time.time()
+        concat_na_label, concat_ka_label, concat_length, concat_lab, concat_demo, concat_diag, concat_pres, concat_na_exist, concat_ka_exist =\
+            get_rnn_input_dataset(df, roll_back_nums)
+        print("time consumed --{}".format(time.time()-start_time))
+        dataset = list(zip(concat_na_label, concat_ka_label, concat_length, concat_lab,
+                           concat_demo, concat_diag, concat_pres, concat_na_exist, concat_ka_exist))
         write_in_h5f(dataset_name, array_name, dataset)
     return dataset
 
 
 def write_in_h5f(dataset_name, array_name, dataset):
-    if len(dataset[0]) == 6:
-        # ka_label만 있는경우
-        ka_label, length_, lab_, demo_, diag_, pres_ = list(zip(*dataset))
-    elif len(dataset[0]) == 7:
-        # na, ka_label 모두 있는 경우
-        na_label, ka_label, length_, lab_, demo_, diag_, pres_ = list(
-            zip(*dataset))
-        na_label_np = np.stack(na_label).astype(float)
-    elif len(dataset[0]) == 8:
-        # weight까지 잇는 경우
-        na_label, ka_label, length_, lab_, demo_, diag_, pres_, weight_ = list(
-            zip(*dataset))
-        na_label_np = np.stack(na_label).astype(float)
-        weight_np = np.stack(weight_).astype(float)
-    else:
-        raise ValueError("wrong dataset dimension")
+    na_label, ka_label, length_, lab_, demo_, diag_, pres_, na_exist, ka_exist = list(
+        zip(*dataset))
+
+    na_label_np = np.stack(na_label).astype(float)
     ka_label_np = np.stack(ka_label).astype(float)
     length_np = np.stack(length_).astype(float)
     lab_np = np.stack(lab_).astype(float)
     demo_np = np.stack(demo_).astype(float)
     diag_np = np.stack(diag_).astype(float)
     pres_np = np.stack(pres_).astype(float)
+    na_exist_np = np.stack(na_exist).astype(float)
+    ka_exist_np = np.stack(ka_exist).astype(float)
 
     node_name = dataset_name + "/" + array_name
     with h5py.File(H5_DATASET_PATH, 'a') as h5f:
+        h5f.create_dataset(node_name+"/na_label", data=na_label_np)
         h5f.create_dataset(node_name+"/ka_label", data=ka_label_np)
         h5f.create_dataset(node_name+"/length", data=length_np)
         h5f.create_dataset(node_name+"/lab", data=lab_np)
         h5f.create_dataset(node_name+"/demo", data=demo_np)
         h5f.create_dataset(node_name+"/diag", data=diag_np)
         h5f.create_dataset(node_name+"/pres", data=pres_np)
-        if len(dataset[0]) > 6:
-            h5f.create_dataset(node_name+"/na_label", data=na_label_np)
-            if len(dataset[0]) > 7:
-                h5f.create_dataset(node_name+"/weight", data=weight_np)
+        h5f.create_dataset(node_name+"/na_exist", data=na_exist_np)
+        h5f.create_dataset(node_name+"/ka_exist", data=ka_exist_np)
 
 
 def read_in_h5f(dataset_name, array_name):
@@ -297,21 +318,16 @@ def read_in_h5f(dataset_name, array_name):
         h5f.close()
 
     with h5py.File(H5_DATASET_PATH, 'r') as h5f:
+        na_label_np = h5f[node_name+'/na_label'][:]
         ka_label_np = h5f[node_name+"/ka_label"][:]
         length_np = h5f[node_name+'/length'][:]
         lab_np = h5f[node_name+'/lab'][:]
         demo_np = h5f[node_name+"/demo"][:]
         diag_np = h5f[node_name+'/diag'][:]
         pres_np = h5f[node_name+'/pres'][:]
-        if node_name + '/weight' in h5f:
-            weight_np = h5f[node_name+'/weight'][:]
-            na_label_np = h5f[node_name+'/na_label'][:]
-            return list(zip(na_label_np, ka_label_np, length_np, lab_np, demo_np, diag_np, pres_np, weight_np))
-        elif node_name + "/na_label" in h5f:
-            na_label_np = h5f[node_name+'/na_label'][:]
-            return list(zip(na_label_np, ka_label_np, length_np, lab_np, demo_np, diag_np, pres_np))
-        else:
-            return list(zip(ka_label_np, length_np, lab_np, demo_np, diag_np, pres_np))
+        na_exist_np = h5f[node_name+'/na_exist'][:]
+        ka_exist_np = h5f[node_name+'/ka_exist'][:]
+        return list(zip(na_label_np, ka_label_np, length_np, lab_np, demo_np, diag_np, pres_np, na_exist_np, ka_exist_np))
 
 
 def dataset_batch_generator(dataset_name, array_name, batch_num):
@@ -327,13 +343,15 @@ def dataset_batch_generator(dataset_name, array_name, batch_num):
         demo_list = []
         diag_list = []
         pres_list = []
+        na_exist_list = []
+        ka_exist_list = []
+
         if dataset_size > batch_index + batch_num:
             random.shuffle(dataset)
             batch_index = 0
 
         for idx in range(batch_index, batch_index+batch_num):
-            na_label, ka_label, _length, _lab, _demo, _diag, _pres = dataset[
-                idx]
+            na_label, ka_label, _length, _lab, _demo, _diag, _pres, na_exist, ka_exist = dataset[idx]
             na_label_list.append(na_label)
             ka_label_list.append(ka_label)
             length_list.append(_length)
@@ -341,8 +359,10 @@ def dataset_batch_generator(dataset_name, array_name, batch_num):
             demo_list.append(_demo)
             diag_list.append(_diag)
             pres_list.append(_pres)
+            na_exist_list.append(na_exist)
+            ka_exist_list.append(ka_exist)
 
         batch_index = batch_index+batch_num
         yield np.stack(na_label_list), np.stack(ka_label_list), np.stack(length_list),\
-            np.stack(lab_list), np.stack(demo_list), np.stack(
-                diag_list), np.stack(pres_list)
+            np.stack(lab_list), np.stack(demo_list), np.stack(diag_list),\
+            np.stack(pres_list), np.stack(na_exist_list), np.stack(ka_exist_list)

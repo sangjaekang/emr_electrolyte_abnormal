@@ -31,7 +31,7 @@ diagnosis data를 전처리하고， 환자 관련된 time-serial dataframe을 �
 '''
 
 
-def get_timeserial_diagnosis_df(no, feature_selected=True):
+def get_timeserial_diagnosis_df(no, feature_selected=True,fill_na=True):
     # 환자에 대한 시계열  진단 dataframe을 구하는 함수
     global DEBUG_PRINT, MIN_DATE, MAX_DATE, DIAGNOSIS_PATH
 
@@ -55,7 +55,10 @@ def get_timeserial_diagnosis_df(no, feature_selected=True):
         .applymap(lambda x: 1.0 if not np.isnan(x) else np.nan)
 
     _y.columns = _y.columns.droplevel()
-    return _y.reindex(index=usecol, columns=pd.date_range(MIN_DATE, MAX_DATE, freq='D')).fillna(axis=1,method='ffill').fillna(0)
+    if fill_na:
+        return _y.reindex(index=usecol, columns=pd.date_range(MIN_DATE, MAX_DATE, freq='D')).fillna(axis=1,method='ffill').fillna(0)
+    else:
+        return _y.reindex(index=usecol, columns=pd.date_range(MIN_DATE, MAX_DATE, freq='D'))
 
 
 def preprocess_diagnosis():

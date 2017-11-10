@@ -75,14 +75,14 @@ def preprocess_label(lab_test):
             'original', where='lab_test=="{}"'.format(lab_test))
     finally:
         lab_store.close()
-    
+
     if lab_test == 'L3041':
         convert_label = convert_na_label
     elif lab_test == 'L3042':
         convert_label = convert_ka_label
     else:
         raise ValueError(
-            "Wrong lab_test num. there is no convert_label method")    
+            "Wrong lab_test num. there is no convert_label method")
 
     original_df.loc[:, 'label'] = original_df.result.map(convert_label)
     original_df[['no', 'date', 'label']].to_hdf(
@@ -139,29 +139,61 @@ def preprocess_label_for_RNN(lab_test):
     if DEBUG_PRINT:
         print("preprocess_label_for_RNN starts")
 
-    label_store = pd.HDFStore(LABEL_PATH, mode='r')
+    if lab_test == 'L3041':
+        convert_label = convert_na_label
+    elif lab_test == 'L3042':
+        convert_label = convert_ka_label
+    else:
+        raise ValueError(
+            "Wrong lab_test num. there is no convert_label method")
+
+    lab_store = pd.HDFStore(LABTEST_PATH, mode='r')
     try:
-        label_df = label_store.select('label/{}'.format(lab_test))
+        label_df = lab_store.select(
+            'original', where='lab_test=="{}"'.format(lab_test))
+        label_df.loc[:, 'label'] = label_df.result.map(convert_label)
         label_df = label_df.sort_values(['no', 'date'])
     finally:
-        label_store.close()
+        lab_store.close()
+    pool = Pool()
+
+    result = pool.map_async(_preprocess_label_for_RNN, [label_df[label_df.no.isin(
+        x)] for x in np.array_split(label_df.no.unique(), CORE_NUMS)])
+
+    concat_df = pd.concat([x for x in result.get() if x is not None])
+
+    concat_df[['no', 'normal_count', 'hypo_count', 'hyper_count']] =\
+        concat_df[['no', 'normal_count',
+                   'hypo_count', 'hyper_count']].astype(int)
+
+    if DEBUG_PRINT:
+        print("preprocess_label_for_RNN ends")
+
+    concat_df.to_hdf(LABEL_PATH, 'RNN/label/{}'.format(lab_test),
+                     format='table', data_columns=True, mode='a')
+
+
+def _preprocess_label_for_RNN(label_df):
+    global DEBUG_PRINT, SKIP_DATE, MIN_PREDICTION_PERIOD, LABEL_PATH
+    if DEBUG_PRINT:
+        print("_preprocess_label_for_RNN starts")
 
     def _insert_row(no, s_date, e_date, result_df):
         # result_df에다가　RNN input으로　쓸　수　있는　환자의　시간대를　담음
         target_df = label_df[(label_df.no == start_no) & (
             label_df.date <= prev_date) & (label_df.date >= start_date)]
-        normal_count, hhypo_count, hhyper_count, lhypo_count, lhyper_count =\
-            target_df.label.value_counts().reindex(index=range(5)).fillna(0)
+        normal_count, hypo_count, hyper_count = target_df.label.value_counts(
+        ).reindex(index=range(3)).fillna(0)
         result_df = result_df.append({'no': no, 'start_date': s_date, 'end_date': e_date,
-                                      'normal_count': normal_count, 'hhypo_count': hhypo_count, 'hhyper_count': hhyper_count,
-                                      'lhypo_count': lhypo_count, 'lhyper_count': lhyper_count}, ignore_index=True)
+                                      'normal_count': normal_count, 'hypo_count': hypo_count, 'hyper_count': hyper_count}, ignore_index=True)
         return result_df
 
     # result_df에　정렬된　정보　담음
-    result_df = pd.DataFrame(columns=['no', 'start_date', 'end_date', 'normal_count',
-                                      'hhypo_count', 'hhyper_count', 'lhypo_count', 'lhyper_count'])
+    result_df = pd.DataFrame(columns=[
+                             'no', 'start_date', 'end_date', 'normal_count', 'hypo_count', 'hyper_count'])
     start_no, start_date = prev_no, prev_date = label_df.iloc[
         0].no, label_df.iloc[0].date
+
     for _, row in label_df.iterrows():
         # label은　NO - DATE순으로 정렬되어있음
         if prev_no == row.no:
@@ -185,15 +217,14 @@ def preprocess_label_for_RNN(lab_test):
             prev_date = row.date
             start_date = row.date
 
-    result_df[['no', 'normal_count', 'hhypo_count', 'hhyper_count', 'lhypo_count', 'lhyper_count']] =\
-        result_df[['no', 'normal_count', 'hhypo_count',
-                   'hhyper_count', 'lhypo_count', 'lhyper_count']].astype(int)
+    result_df[['no', 'normal_count', 'hypo_count', 'hyper_count']] =\
+        result_df[['no', 'normal_count',
+                   'hypo_count', 'hyper_count']].astype(int)
 
     if DEBUG_PRINT:
-        print("preprocess_label_for_RNN ends")
+        print("_preprocess_label_for_RNN ends")
 
-    result_df.to_hdf(LABEL_PATH, 'RNN/label/{}'.format(lab_test),
-                     format='table', data_columns=True, mode='a')
+    return result_df
 
 
 def get_not_sparse_data(lab_test):
@@ -286,33 +317,30 @@ def get_df_between_date_lab(df, t_day, f_day):
     return df.loc[:, df.columns[(df.columns > f_day) & (df.columns < t_day)]].count().sum()
 
 
-def convert_na_label(x):
-    if x <= 135:
-        # 중증저나트륨혈증
-        return 1
-    elif x >= 145:
-        return 2
-    else:
-        return 0
-
 def convert_ka_label(x):
     # reference :
     # 저칼륨혈증과 고칼륨혈증, 임인석
-    if x <= 3.0:
-        # 중증저칼륨혈증
-        return 1
-    elif x >= 5.5:
-        # 중증고칼륨혈증
+    if x > 5.0:
+        # 고칼륨혈증
         return 2
-    # elif x < 3.5:
-    #     # 경증저칼륨혈증
-    #     return 3
-    # elif x > 5.0:
-    #     # 경증고칼륨혈증
-    #     return 4
+    elif x < 3.5:
+        # 저칼륨혈증
+        return 1
     else:
         # 정상(3.5 ~ 5.0)
         return 0
+
+
+def convert_na_label(x):
+    if x > 145:
+        # 고나트륨혈증
+        return 2
+    elif x < 135:
+        # 저나트륨혈증
+        return 1
+    else:
+        return 0
+
 
 def preprocess_label_for_RNN(lab_test):
     '''
