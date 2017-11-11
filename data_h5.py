@@ -330,39 +330,149 @@ def read_in_h5f(dataset_name, array_name):
         return list(zip(na_label_np, ka_label_np, length_np, lab_np, demo_np, diag_np, pres_np, na_exist_np, ka_exist_np))
 
 
-def dataset_batch_generator(dataset_name, array_name, batch_num):
+def crop_prediction_date(dataset,pred_date):
+    # ---------------------------#
+    # data   : 1,2,3,4,5,6,7     #
+    # input  : 1,2,3,4,5         #
+    # output :     3,4,5,6,7     #
+    # 이런식의　구조를　가져야　함     #
+    # ---------------------------#
+    # data -> input / output　형태로　TimeSerial을　나누어주는　메소드
+    
+    na_label, ka_label, _length, _lab, _demo, _diag, _pres, na_exist, ka_exist = list(zip(*dataset))
+    # input에　관련된　value, 그래서　pred_date:　로　slicing
+    pred_na_label = np.array(na_label)[:,pred_date:]
+    pred_ka_label = np.array(ka_label)[:,pred_date:]
+    pred_na_exist = np.array(na_exist)[:,pred_date:]
+    pred_ka_exist = np.array(ka_exist)[:,pred_date:]
+    # output에　관련된　value, 그래서　:-pred_date　로　slicing
+    pred_length = np.array(_length) - pred_date
+    pred_lab = np.array(_lab)[:,:-pred_date,:]
+    pred_demo = np.array(_demo)[:,:-pred_date,:]
+    pred_diag = np.array(_diag)[:,:-pred_date,:]
+    pred_pres = np.array(_pres)[:,:-pred_date,:]
+    
+    # regresssion을　위해서는　수치값을　알아야　함．　
+    ## get the index of labtest label(ka_index, na_index)
+    lab_store = pd.HDFStore(LABTEST_PATH,mode='r')
+    try:
+        na_index = lab_store.select('metadata/usecol').sort_values('counts',ascending=False).index.get_loc('L3041')
+        ka_index = lab_store.select('metadata/usecol').sort_values('counts',ascending=False).index.get_loc('L3042')
+    finally:
+        lab_store.close()
+    pred_na_value = np.array(_lab)[:,pred_date:,na_index] # na_value
+    pred_ka_value = np.array(_lab)[:,pred_date:,ka_index] # ka_value
+    
+    return list(zip(pred_na_label, pred_ka_label, pred_na_exist,\
+                    pred_ka_exist, pred_na_value, pred_ka_value,\
+                    pred_length, pred_lab, pred_demo, pred_diag, pred_pres))
+
+
+def revise_weight_value(dataset,alpha=1,beta=2):
+    na_label, ka_label, na_exist, ka_exist, na_value, ka_value,\
+    _length, _lab, _demo, _diag, _pres = list(zip(*dataset))
+    
+    na_value = np.array(na_value)
+    ka_value = np.array(ka_value)
+    
+    na_exist = np.array(na_exist)
+    ka_exist = np.array(ka_exist)
+    
+    first_date_array = np.ones((na_value.shape[0],1)) *0.5
+    na_weight = na_value - np.hstack((first_date_array,na_value[:,:-1]))
+    na_weight = ((na_weight * beta) + alpha) * na_exist
+    
+    first_date_array = np.ones((ka_value.shape[0],1)) *0.5
+    ka_weight = ka_value - np.hstack((first_date_array,ka_value[:,:-1]))
+    ka_weight = ((ka_weight * beta) + alpha) * ka_exist
+    
+    return list(zip(np.array(na_label), np.array(ka_label), na_weight, ka_weight, na_value, ka_value,\
+                    np.array(_length), np.array(_lab), np.array(_demo), np.array(_diag), np.array(_pres)))
+
+
+def revise_lab_nums(dataset,lab_nums):
+    na_label, ka_label, na_weight, ka_weight, na_value, ka_value,\
+    _length, _lab, _demo, _diag, _pres = list(zip(*dataset))
+    
+    np_lab = np.array(_lab)
+    _,_,tot_nums = np_lab.shape
+    half_num = tot_nums//2
+    
+    assert lab_nums<half_num, "lab_nums{} cannot be greater than half_nums{}".format(lab_nums,half_num)
+    
+    result_array = np_lab[:,:,:lab_nums] # lab_result_array 
+    exist_array = np_lab[:,:,half_num:half_num+lab_nums] # lab_existence_array
+    np_lab = np.concatenate([result_array,exist_array],axis=2) # lab_array
+    
+    return list(zip(np.array(na_label),np.array(ka_label),na_weight,ka_weight,np.array(na_value),\
+            np.array(ka_value),np.array(_length),np_lab,np.array(_demo),np.array(_diag),np.array(_pres)))
+
+
+def dataset_batch_generator(dataset_name, pred_date, array_name, batch_num,
+                            alpha=1,beta=2,lab_nums=20,normal_check=False):
+    
     dataset = read_in_h5f(dataset_name, array_name)
+    # pred_date　만큼　input과 input을　crop함
+    dataset = crop_prediction_date(dataset,pred_date)
+    # weight값을　바꾸어줌
+    dataset = revise_weight_value(dataset,alpha,beta)
+    # lab_test의　갯수를　바꾸어줌
+    dataset = revise_lab_nums(dataset,lab_nums)
     dataset_size = len(dataset)
+    print("dataset_size : {}".format(dataset_size))
     random.shuffle(dataset)
     batch_index = 0
+    
     while True:
         na_label_list = []
         ka_label_list = []
+        na_weight_list = []
+        ka_weight_list = []
+        na_value_list = []
+        ka_value_list = []
         length_list = []
         lab_list = []
         demo_list = []
         diag_list = []
         pres_list = []
-        na_exist_list = []
-        ka_exist_list = []
-
-        if dataset_size > batch_index + batch_num:
-            random.shuffle(dataset)
-            batch_index = 0
-
-        for idx in range(batch_index, batch_index+batch_num):
-            na_label, ka_label, _length, _lab, _demo, _diag, _pres, na_exist, ka_exist = dataset[idx]
+        
+        batch_count = batch_num
+        while batch_count > 0:
+            if dataset_size <= batch_index:
+                random.shuffle(dataset)
+                batch_index = 0
+            
+            na_label, ka_label, na_weight, ka_weight, na_value, ka_value,\
+            _length, _lab, _demo, _diag, _pres = dataset[batch_index]
+            
+            batch_index= batch_index+1
+            if np.sum(ka_label) == 0 and not normal_check:
+                continue
+            batch_count = batch_count - 1
             na_label_list.append(na_label)
             ka_label_list.append(ka_label)
+            na_weight_list.append(na_weight)
+            ka_weight_list.append(ka_weight)
+            na_value_list.append(na_value)
+            ka_value_list.append(ka_value)
             length_list.append(_length)
             lab_list.append(_lab)
             demo_list.append(_demo)
             diag_list.append(_diag)
             pres_list.append(_pres)
-            na_exist_list.append(na_exist)
-            ka_exist_list.append(ka_exist)
 
-        batch_index = batch_index+batch_num
-        yield np.stack(na_label_list), np.stack(ka_label_list), np.stack(length_list),\
-            np.stack(lab_list), np.stack(demo_list), np.stack(diag_list),\
-            np.stack(pres_list), np.stack(na_exist_list), np.stack(ka_exist_list)
+        batch_na_label = np.stack(na_label_list)
+        batch_ka_label = np.stack(ka_label_list)
+        batch_na_weight = np.stack(na_weight_list)
+        batch_ka_weight = np.stack(ka_weight_list)
+        batch_na_value = np.stack(na_value_list)
+        batch_ka_value = np.stack(ka_value_list)
+        batch_length = np.stack(length_list)
+        batch_lab = np.stack(lab_list)
+        batch_demo = np.stack(demo_list)
+        batch_diag = np.stack(diag_list)
+        batch_pres = np.stack(pres_list)
+
+        yield batch_na_label, batch_ka_label, batch_na_weight,\
+            batch_ka_weight, batch_na_value, batch_ka_value,\
+            batch_length, batch_lab, batch_demo, batch_diag, batch_pres
