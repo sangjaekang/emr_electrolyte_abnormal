@@ -368,7 +368,7 @@ def crop_prediction_date(dataset,pred_date):
                     pred_length, pred_lab, pred_demo, pred_diag, pred_pres))
 
 
-def revise_weight_value(dataset,alpha=1,beta=2):
+def revise_weight_value(dataset, alpha=1, beta=2,gamma=1.2):
     na_label, ka_label, na_exist, ka_exist, na_value, ka_value,\
     _length, _lab, _demo, _diag, _pres = list(zip(*dataset))
     
@@ -378,13 +378,20 @@ def revise_weight_value(dataset,alpha=1,beta=2):
     na_exist = np.array(na_exist)
     ka_exist = np.array(ka_exist)
     
+    na_abn =na_value.copy()
+    na_abn[na_abn>0] = gamma 
+    na_abn[na_abn!=gamma] = 1
+    ka_abn =ka_value.copy()
+    ka_abn[ka_abn>0] = gamma 
+    ka_abn[ka_abn!=gamma] = 1
+         
     first_date_array = np.ones((na_value.shape[0],1)) *0.5
     na_weight = na_value - np.hstack((first_date_array,na_value[:,:-1]))
-    na_weight = ((na_weight * beta) + alpha) * na_exist
+    na_weight = (((na_weight * beta) + alpha) * na_exist) * na_abn
     
     first_date_array = np.ones((ka_value.shape[0],1)) *0.5
     ka_weight = ka_value - np.hstack((first_date_array,ka_value[:,:-1]))
-    ka_weight = ((ka_weight * beta) + alpha) * ka_exist
+    ka_weight = (((ka_weight * beta) + alpha) * ka_exist) * ka_abn
     
     return list(zip(np.array(na_label), np.array(ka_label), na_weight, ka_weight, na_value, ka_value,\
                     np.array(_length), np.array(_lab), np.array(_demo), np.array(_diag), np.array(_pres)))
@@ -395,10 +402,10 @@ def revise_lab_nums(dataset,lab_nums):
     _length, _lab, _demo, _diag, _pres = list(zip(*dataset))
     
     np_lab = np.array(_lab)
-    _,_,tot_nums = np_lab.shape
-    half_num = tot_nums//2
+    _, _, tot_nums = np_lab.shape
+    half_num = tot_nums // 2
     
-    assert lab_nums<half_num, "lab_nums{} cannot be greater than half_nums{}".format(lab_nums,half_num)
+    assert lab_nums <= half_num, "lab_nums{} cannot be greater than half_nums{}".format(lab_nums,half_num)
     
     result_array = np_lab[:,:,:lab_nums] # lab_result_array 
     exist_array = np_lab[:,:,half_num:half_num+lab_nums] # lab_existence_array
@@ -409,13 +416,13 @@ def revise_lab_nums(dataset,lab_nums):
 
 
 def dataset_batch_generator(dataset_name, pred_date, array_name, batch_num,
-                            alpha=1,beta=2,lab_nums=20,normal_check=False):
+                            alpha=1,beta=2,gamma=1.2,lab_nums=20,normal_check=False):
     
     dataset = read_in_h5f(dataset_name, array_name)
     # pred_date　만큼　input과 input을　crop함
     dataset = crop_prediction_date(dataset,pred_date)
     # weight값을　바꾸어줌
-    dataset = revise_weight_value(dataset,alpha,beta)
+    dataset = revise_weight_value(dataset,alpha,beta,gamma)
     # lab_test의　갯수를　바꾸어줌
     dataset = revise_lab_nums(dataset,lab_nums)
     dataset_size = len(dataset)
